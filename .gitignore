@@ -1,0 +1,16 @@
+# Helm
+charts/matrix-rtc-operator/charts/
+*.tgz
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude
+.claude/sessions/

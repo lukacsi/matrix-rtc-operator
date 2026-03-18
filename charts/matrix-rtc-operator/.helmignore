@@ -1,0 +1,6 @@
+.git
+.gitignore
+hack/
+docs/
+*.md
+ci/

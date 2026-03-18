@@ -1,0 +1,255 @@
+# matrix-rtc-operator — Backlog
+
+## Phase 0: dcontroller Assessment
+
+### P0-1: Test CNPG Cluster CRD creation via dcontroller
+- Can dcontroller create third-party CRDs (postgresql.cnpg.io/v1 Cluster)?
+- Test with a minimal Operator CR that watches a dummy source and creates a CNPG Cluster
+- If blocked: document as manual prerequisite, adjust Phase 2
+
+### P0-2: Test @concat limits for homeserver.yaml generation
+- Generate a valid Synapse homeserver.yaml via @concat in a pipeline
+- Test nested YAML, multiline strings, special characters
+- Fallback if too complex: multi-key ConfigMap + init container assembly
+
+### P0-3: Document dcontroller workarounds for each FR
+- FR-1 (Secret reading): late-binding pattern with sed entrypoint — document the standardized template
+- FR-2 (RBAC): manually craft least-privilege ClusterRoles — document the pattern
+- FR-3 (Testing): manual verification with kubectl — document test procedure
+- FR-4 (Webhooks): values.schema.json as partial substitute
+- Output: decision doc in `docs/dcontroller-assessment.md`
+
+### P0-4: File dcontroller issues for FR-1 through FR-8
+- FR-1: Secure Secret reading in pipelines (CRITICAL)
+- FR-2: Namespace-scoped RBAC auto-generation (HIGH)
+- FR-3: Pipeline testing framework — `dctl test` (HIGH)
+- FR-4: Webhook validation auto-generation (MEDIUM)
+- FR-5: Strategic merge patch for lists (LOW)
+- FR-6: Developer experience — tutorials, cookbook, scaffolding (HIGH)
+- FR-7: Helm integration — common library chart (MEDIUM)
+- FR-8: Multi-cluster federation (FUTURE)
+
+---
+
+## Phase 1: Repo + Chart Skeleton + LiveKit Adaptation
+
+### P1-1: Chart skeleton with enterprise values.yaml
+- Chart.yaml with name, version, description, dependencies
+- values.yaml with @param comments for all fields
+- Sections: global, matrix (enabled toggle), livekit, stunner, certManager, infrastructure
+- Security contexts, resource presets, probe defaults for each component
+- `global.imageRegistry`, `global.imagePullSecrets`, `global.storageClass`
+
+### P1-2: values.schema.json
+- JSON Schema validation for all required fields
+- Conditional validation (e.g., database.external requires host when mode=external)
+- Enum constraints for mode fields (managed/external)
+
+### P1-3: CRD templates
+- MatrixRTCStack CRD
+- LiveKitStack CRD
+- MatrixStack CRD
+- RTCInfrastructure CRD
+- All with `crds.create` toggle, `helm.sh/resource-policy: keep` annotation
+- ArgoCD sync-wave annotation for CRD-before-operator ordering
+
+### P1-4: RBAC templates
+- Least-privilege ClusterRole for each Operator resource type
+- ServiceAccount with automountServiceAccountToken: false
+- Per-component ServiceAccounts for workloads (Synapse, LiveKit, etc.)
+
+### P1-5: Adapt LiveKit pipelines — gateway-agnostic
+- Port pool-to-views.yaml → livekit-to-views.yaml (remove Envoy refs, use generic gatewayRef)
+- Port views-to-k8s.yaml → livekit-views-to-k8s.yaml (HTTPRoute parentRefs from infra.httpGateway)
+- Port status-writers.yaml → livekit-status-writers.yaml (remove EnvoyProxy watchers)
+- Port infra.yaml → infra.yaml (remove Envoy-specific controllers, keep STUNner + cert-manager)
+
+### P1-6: Top-level decomposition pipeline
+- stack-decompose.yaml: MatrixRTCStack → LiveKitStack CR + MatrixStack CR
+- stack-status.yaml: aggregate status from both stacks
+- Test: apply MatrixRTCStack → verify LiveKitStack + MatrixStack created
+
+### P1-7: NOTES.txt + .helmignore + CI values
+- NOTES.txt with post-install instructions (URLs, next steps)
+- .helmignore (exclude hack/, docs/, .git/)
+- ci/default-values.yaml for helm lint in CI
+
+### P1-8: GitHub Actions CI
+- Workflow: helm lint, helm template, chart-testing (ct)
+- Run on push to master and PRs
+
+---
+
+## Phase 2: Matrix Core — Synapse + CNPG
+
+### P2-1: matrix-to-views.yaml — server + networking views
+- matrix-to-server-view: MatrixStack + RTCInfrastructure → MatrixServerView
+  - @join on infraRef (with auto-discovery fallback)
+  - @definedOr chains for infra defaults
+  - Synapse image, resources, DB config, MSC flags
+- matrix-to-networking-view: subdomains, gateway refs, domain
+
+### P2-2: Synapse deployment pipeline
+- synapse-deployment controller in matrix-views-to-k8s.yaml
+- Late-binding secret pattern: homeserver.yaml with __PLACEHOLDER__ tokens
+- sed entrypoint for DB credentials, signing key
+- @hash annotation for config rollout triggers
+- Volume mounts: homeserver.yaml ConfigMap, signing key Secret, media PVC, data PVC
+
+### P2-3: homeserver.yaml generation
+- synapse-config controller: @concat to build homeserver.yaml
+- Static defaults: server_name, public_baseurl, experimental_features, rate limits
+- Dynamic: database connection string (@cond managed/external), serve_server_wellknown
+- Output: ConfigMap with homeserver.yaml key
+
+### P2-4: CNPG Cluster pipeline (conditional)
+- cnpg-cluster controller: @select on database.mode == "managed"
+- Create postgresql.cnpg.io/v1 Cluster CR
+- Config: instances, storage, storageClass, enablePDB, resources
+- DB credentials: auto-generated by CNPG (reference in Synapse config)
+
+### P2-5: Synapse service + HTTPRoute
+- synapse-service controller: ClusterIP on port 8008
+- synapse-httproute controller: HTTPRoute for matrix.{domain} → synapse service
+- parentRefs from networking view's gatewayRef
+
+### P2-6: Example CR — minimal MatrixStack
+- hack/matrix/matrix-stack-minimal.yaml: Synapse only, managed DB, no clients, no LiveKit
+- hack/matrix/secrets.yaml: example Secret with registration-secret
+
+---
+
+## Phase 3: Clients — Element Web + Cinny
+
+### P3-1: matrix-to-client-views controller
+- @unwind on clients array → one MatrixClientView per enabled client
+- @select to filter disabled clients
+- Each view: name, image, subdomain, resources, config shape
+
+### P3-2: Client deployment + config pipelines
+- client-deployment: Deployment per MatrixClientView
+- client-config: ConfigMap per client with @switch for different config.json shapes
+  - Element: `{default_server_config: {m.homeserver: {base_url: ...}}}`
+  - Cinny: `{defaultHomeserver: 0, homeserverList: [...]}`
+- client-service: ClusterIP on port 80
+- client-httproute: HTTPRoute per client subdomain
+
+### P3-3: Security contexts for client pods
+- runAsNonRoot, readOnlyRootFilesystem, drop ALL capabilities
+- nginx-specific: writable /tmp, /var/cache/nginx via emptyDir
+
+---
+
+## Phase 4: LiveKit Bridge — lk-jwt-service + .well-known
+
+### P4-1: lk-jwt-service deployment pipeline
+- jwt-service-deployment: Deployment with env vars from LiveKitStack + MatrixStack
+  - LIVEKIT_URL, LIVEKIT_KEY, LIVEKIT_SECRET, LIVEKIT_FULL_ACCESS_HOMESERVERS
+- jwt-service-service: ClusterIP on port 8080
+- jwt-service-httproute: HTTPRoute for matrixrtc.{domain}/livekit/jwt
+
+### P4-2: .well-known via Synapse config
+- matrix-bridge.yaml: cross-CRD join (MatrixStack + LiveKitStack)
+- Patch Synapse ConfigMap to include serve_server_wellknown + rtc_foci
+- @definedOr graceful degradation if LiveKitStack not ready
+- well-known-httproute: HTTPRoute for {domain}/.well-known/matrix/* → synapse
+
+### P4-3: End-to-end call verification
+- Deploy full stack on test cluster
+- Element Web → create room → start call → verify Element Call UI
+- Check .well-known/matrix/client returns rtc_foci
+- Verify audio/video via LiveKit+STUNner
+
+---
+
+## Phase 5: Status Aggregation + Enterprise Polish
+
+### P5-1: Matrix status writers
+- synapse-status-from-deploy → MatrixServerView.status
+- cnpg-status-from-cluster → MatrixServerView.status.database
+- client-status-from-deploy → MatrixClientView.status
+- jwt-service-status-from-deploy → MatrixServerView.status.jwtService
+- httproute-ready → MatrixNetworkingView.status
+- Aggregate: Views → MatrixStack.status → MatrixRTCStack.status
+
+### P5-2: Probes for all components
+- Synapse: liveness /_synapse/health, readiness /_matrix/client/versions, startup
+- LiveKit: liveness/readiness on :7880
+- Redis: redis-cli ping
+- lk-jwt-service: HTTP GET :8080/healthz
+- Element/Cinny: HTTP GET / (nginx)
+
+### P5-3: NetworkPolicy templates
+- Default deny ingress per namespace
+- Explicit allows: Synapse ← clients, Synapse ← lk-jwt-service, LiveKit ← STUNner
+- Gated by networkPolicy.enabled in values.yaml
+
+### P5-4: ServiceMonitor templates
+- Synapse /_synapse/metrics (port 9000)
+- LiveKit /metrics
+- Gated by metrics.serviceMonitor.enabled in values.yaml
+
+### P5-5: PodDisruptionBudget templates
+- Per component, configurable minAvailable/maxUnavailable
+- Gated by pdb.enabled in values.yaml
+
+---
+
+## Phase 6: Testing + Docs + Homelab Deploy
+
+### P6-1: Evaluation test cases (mirror thesis Cases 1-8)
+1. Zero-touch provisioning: apply MatrixRTCStack → full stack converges
+2. Multi-tenancy: second stack in different namespace
+3. Clean decommissioning: delete stack → all resources cleaned up
+4. Feature toggling: disable Cinny → resources deleted, re-enable → recreated
+5. Database mode switching: managed → external → managed
+6. External infrastructure: BYO STUNner gateway
+7. Autoscaling: HPA on LiveKit + STUNner under load
+8. Real-world functional: Element Call voice/video via STUNner TURN
+
+### P6-2: Documentation
+- docs/architecture.md: three-layer diagram, CRD hierarchy, pipeline topology
+- docs/quickstart.md: minimal setup guide (5 minutes to running Matrix)
+- docs/crd-reference.md: all CRD fields with descriptions
+- docs/enterprise-guide.md: security contexts, NetworkPolicy, monitoring, backup
+
+### P6-3: README with parameter tables
+- Auto-generated from @param comments in values.yaml
+- Component list, architecture diagram, quick start, configuration reference
+
+### P6-4: Example CRs
+- hack/matrix/matrix-stack-minimal.yaml (Synapse only)
+- hack/matrix/matrix-stack-full.yaml (all components)
+- hack/matrix/matrix-stack-external-db.yaml (BYO PostgreSQL)
+- hack/livekit/livekit-stack-standalone.yaml (LiveKit only, no Matrix)
+- hack/infrastructure.yaml (RTCInfrastructure example)
+
+### P6-5: Homelab deployment
+- ArgoCD app for matrix-rtc-operator chart
+- ArgoCD app for MatrixRTCStack CR (manifests)
+- SOPS secrets for Matrix auth, LiveKit keys, STUNner credentials
+- DNS: matrix.lukacsi.org, element.lukacsi.org, cinny.lukacsi.org, livekit.lukacsi.org
+- STUNner UDP port forwarding (not through Cloudflare tunnel)
+
+---
+
+## Future (Post-v1)
+
+### F-1: Tiered media storage
+- SSD (local-path) for active media + off-hours archival CronJob to HDD (zfs-nfs)
+
+### F-2: CNPG backup integration
+- ScheduledBackup CR creation from MatrixStack spec
+- Barman/S3 backup destination configuration
+
+### F-3: Matrix federation support
+- Port 8448 routing, SRV records
+- Federation tester integration
+
+### F-4: Standalone LiveKit chart extraction
+- Extract LiveKitStack as separate Helm chart
+- Shared library chart (dcontroller-common) for common helpers
+
+### F-5: Matrix bridges
+- Declarative bridge management (Discord, Telegram, Signal, IRC)
+- Bridge CRD → mautrix-* deployments
