@@ -346,7 +346,7 @@ spec:
                   - "$.MatrixNetworkingView.spec.host"
                   - "\",\"server_name\":\""
                   - "$.MatrixServerView.spec.synapse.serverName"
-                  - "\"}},\"brand\":\"Element\",\"disable_custom_urls\":true,\"disable_guests\":true}"
+                  - "\"}},\"brand\":\"Element\",\"disable_custom_urls\":true,\"disable_guests\":true,\"features\":{\"feature_group_calls\":true,\"feature_video_rooms\":true,\"feature_element_call_video_rooms\":true}}"
       target:
         apiGroup: ""
         kind: ConfigMap
