@@ -1,0 +1,3 @@
+# matrix-rtc-operator default values
+crds:
+  create: true

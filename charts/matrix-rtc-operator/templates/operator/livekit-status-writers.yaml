@@ -1,0 +1,275 @@
+apiVersion: dcontroller.io/v1alpha1
+kind: Operator
+metadata:
+  name: matrixrtc-livekit-status-writer
+  labels:
+    matrixrtc.lukacsi.org/component: operator
+    matrixrtc.lukacsi.org/role: livekit-status
+spec:
+  controllers:
+    - name: server-status-from-deploy
+      sources:
+        - apiGroup: apps
+          kind: Deployment
+          labelSelector:
+            matchLabels:
+              "matrixrtc.lukacsi.org/component": "livekit"
+      pipeline:
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: LiveKitServerView
+            metadata:
+              name: "$.metadata.labels['matrixrtc.lukacsi.org/view']"
+              namespace: "$.metadata.namespace"
+            status:
+              replicas: "$.status.replicas"
+              readyReplicas: "$.status.readyReplicas"
+              updatedReplicas: "$.status.updatedReplicas"
+              availableReplicas: "$.status.availableReplicas"
+              serviceName: "livekit-sig"
+              conditions: "$.status.conditions"
+      target:
+        apiGroup: lukacsi.org
+        kind: LiveKitServerView
+        type: Patcher
+
+    # Redis status — kept at View level for observability
+    - name: redis-status-from-statefulset
+      sources:
+        - apiGroup: apps
+          kind: StatefulSet
+          labelSelector:
+            matchLabels:
+              "matrixrtc.lukacsi.org/component": "redis"
+      pipeline:
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: LiveKitServerView
+            metadata:
+              name: "$.metadata.labels['matrixrtc.lukacsi.org/view']"
+              namespace: "$.metadata.namespace"
+            status:
+              redis:
+                ready:
+                  "@eq": [{ "@definedOr": ["$.status.readyReplicas", 0] }, "$.spec.replicas"]
+      target:
+        apiGroup: lukacsi.org
+        kind: LiveKitServerView
+        type: Patcher
+
+    # TURN address — static externalAddress (homelab/hybrid, no Gateway needed)
+    - name: static-turn-to-networking-view
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+      pipeline:
+        - "@select":
+            "@exists": "$.spec.turnExternalAddress"
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: LiveKitNetworkingView
+            metadata:
+              name: "$.metadata.name"
+              namespace: "$.metadata.namespace"
+            status:
+              turnAddress: "$.spec.turnExternalAddress"
+      target:
+        apiGroup: lukacsi.org
+        kind: LiveKitNetworkingView
+        type: Patcher
+
+    # TURN address — discovered from STUNner Gateway LB IP (cloud)
+    - name: gateway-lbip-to-networking-view
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+        - apiGroup: gateway.networking.k8s.io
+          kind: Gateway
+      pipeline:
+        - "@join":
+            "@and":
+              - "@eq": ["$.LiveKitNetworkingView.spec.udpGatewayRef.name", "$.Gateway.metadata.name"]
+              - "@eq": ["$.LiveKitNetworkingView.spec.udpGatewayRef.namespace", "$.Gateway.metadata.namespace"]
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: LiveKitNetworkingView
+            metadata:
+              name: "$.LiveKitNetworkingView.metadata.name"
+              namespace: "$.LiveKitNetworkingView.metadata.namespace"
+            status:
+              lbIP: "$.Gateway.status.addresses[0].value"
+              turnAddress:
+                "@definedOr":
+                  - "$.LiveKitNetworkingView.spec.turnExternalAddress"
+                  - "$.Gateway.status.addresses[0].value"
+      target:
+        apiGroup: lukacsi.org
+        kind: LiveKitNetworkingView
+        type: Patcher
+
+    - name: httproute-ready-to-networking-view
+      sources:
+        - apiGroup: gateway.networking.k8s.io
+          kind: HTTPRoute
+          labelSelector:
+            matchLabels:
+              "matrixrtc.lukacsi.org/component": "http"
+      pipeline:
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: LiveKitNetworkingView
+            metadata:
+              name: "$.metadata.labels['matrixrtc.lukacsi.org/view']"
+              namespace: "$.metadata.namespace"
+            status:
+              httpRouteReady:
+                "@gt":
+                  - "@len":
+                      "@filter":
+                        - "@and":
+                            - "@eq": ["$$.type", "Accepted"]
+                            - "@eq": ["$$.status", "True"]
+                        - "@definedOr": ["$.status.parents[0].conditions", []]
+                  - 0
+      target:
+        apiGroup: lukacsi.org
+        kind: LiveKitNetworkingView
+        type: Patcher
+
+    - name: udproute-ready-to-networking-view
+      sources:
+        - apiGroup: stunner.l7mp.io
+          kind: UDPRoute
+          labelSelector:
+            matchLabels:
+              "matrixrtc.lukacsi.org/component": "stunner"
+      pipeline:
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: LiveKitNetworkingView
+            metadata:
+              name: "$.metadata.labels['matrixrtc.lukacsi.org/view']"
+              namespace: "$.metadata.namespace"
+            status:
+              udpRouteReady:
+                "@gt":
+                  - "@len":
+                      "@filter":
+                        - "@and":
+                            - "@eq": ["$$.type", "Accepted"]
+                            - "@eq": ["$$.status", "True"]
+                        - "@definedOr": ["$.status.parents[0].conditions", []]
+                  - 0
+      target:
+        apiGroup: lukacsi.org
+        kind: LiveKitNetworkingView
+        type: Patcher
+
+    - name: ingress-status-from-deploy
+      sources:
+        - apiGroup: apps
+          kind: Deployment
+          labelSelector:
+            matchLabels:
+              "matrixrtc.lukacsi.org/component": "ingress"
+      pipeline:
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: LiveKitServerView
+            metadata:
+              name: "$.metadata.labels['matrixrtc.lukacsi.org/view']"
+              namespace: "$.metadata.namespace"
+            status:
+              ingress:
+                replicas: "$.status.replicas"
+                readyReplicas: "$.status.readyReplicas"
+                conditions: "$.status.conditions"
+      target:
+        apiGroup: lukacsi.org
+        kind: LiveKitServerView
+        type: Patcher
+
+    # --- Aggregate to LiveKitStack ---
+    # Sources ALL raw K8s resources directly to avoid Patcher race on Views.
+    # Until dcontroller#9 is fixed (Patcher doesn't deep merge), this is the only
+    # reliable way to aggregate status from multiple sources into one object.
+    - name: stack-status-aggregate
+      sources:
+        - apiGroup: apps
+          kind: Deployment
+          labelSelector:
+            matchLabels:
+              "matrixrtc.lukacsi.org/component": "livekit"
+        - apiGroup: apps
+          kind: StatefulSet
+          labelSelector:
+            matchLabels:
+              "matrixrtc.lukacsi.org/component": "redis"
+        - apiGroup: gateway.networking.k8s.io
+          kind: HTTPRoute
+          labelSelector:
+            matchLabels:
+              "matrixrtc.lukacsi.org/component": "http"
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+      pipeline:
+        - "@join":
+            "@and":
+              - "@eq": ["$.Deployment.metadata.labels['matrixrtc.lukacsi.org/stack']", "$.StatefulSet.metadata.labels['matrixrtc.lukacsi.org/stack']"]
+              - "@eq": ["$.Deployment.metadata.labels['matrixrtc.lukacsi.org/stack']", "$.HTTPRoute.metadata.labels['matrixrtc.lukacsi.org/stack']"]
+              - "@eq": ["$.Deployment.metadata.labels['matrixrtc.lukacsi.org/stack']", "$.LiveKitNetworkingView.spec.stack"]
+              - "@eq": ["$.Deployment.metadata.namespace", "$.StatefulSet.metadata.namespace"]
+              - "@eq": ["$.Deployment.metadata.namespace", "$.HTTPRoute.metadata.namespace"]
+              - "@eq": ["$.Deployment.metadata.namespace", "$.LiveKitNetworkingView.metadata.namespace"]
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: LiveKitStack
+            metadata:
+              name: "$.Deployment.metadata.labels['matrixrtc.lukacsi.org/stack']"
+              namespace: "$.Deployment.metadata.namespace"
+            status:
+              host: "$.LiveKitNetworkingView.spec.host"
+              ready:
+                "@and":
+                  - "@gt": [{ "@definedOr": ["$.Deployment.status.readyReplicas", 0] }, 0]
+                  - "@eq": [{ "@definedOr": ["$.StatefulSet.status.readyReplicas", 0] }, { "@definedOr": ["$.StatefulSet.spec.replicas", 1] }]
+                  - "@or":
+                      - "@exists": "$.LiveKitNetworkingView.spec.turnExternalAddress"
+                      - "@exists": "$.LiveKitNetworkingView.status.lbIP"
+                  - "@gt":
+                      - "@len":
+                          "@filter":
+                            - "@and":
+                                - "@eq": ["$$.type", "Accepted"]
+                                - "@eq": ["$$.status", "True"]
+                            - "@definedOr": ["$.HTTPRoute.status.parents[0].conditions", []]
+                      - 0
+              message:
+                "@cond":
+                  - "@not":
+                      "@gt": [{ "@definedOr": ["$.Deployment.status.readyReplicas", 0] }, 0]
+                  - "Server not ready"
+                  - "@cond":
+                      - "@not":
+                          "@eq": [{ "@definedOr": ["$.StatefulSet.status.readyReplicas", 0] }, { "@definedOr": ["$.StatefulSet.spec.replicas", 1] }]
+                      - "Redis not ready"
+                      - "@cond":
+                          - "@not":
+                              "@or":
+                                - "@exists": "$.LiveKitNetworkingView.spec.turnExternalAddress"
+                                - "@exists": "$.LiveKitNetworkingView.status.lbIP"
+                          - "No TURN endpoint"
+                          - "Running"
+              components:
+                server:
+                  replicas: "$.Deployment.status.replicas"
+                  readyReplicas: "$.Deployment.status.readyReplicas"
+                redis:
+                  ready:
+                    "@eq": [{ "@definedOr": ["$.StatefulSet.status.readyReplicas", 0] }, { "@definedOr": ["$.StatefulSet.spec.replicas", 1] }]
+                networking:
+                  turnAddress: "$.LiveKitNetworkingView.status.turnAddress"
+      target:
+        apiGroup: lukacsi.org
+        kind: LiveKitStack
+        type: Patcher

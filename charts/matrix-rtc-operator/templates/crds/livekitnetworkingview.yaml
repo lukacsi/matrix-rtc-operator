@@ -1,0 +1,69 @@
+{{- if .Values.crds.create }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: livekitnetworkingviews.lukacsi.org
+  labels:
+    app.kubernetes.io/managed-by: matrix-rtc-operator
+  annotations:
+    "helm.sh/resource-policy": keep
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  group: lukacsi.org
+  scope: Namespaced
+  names:
+    kind: LiveKitNetworkingView
+    plural: livekitnetworkingviews
+    singular: livekitnetworkingview
+    shortNames: ["lknv"]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Host
+          type: string
+          jsonPath: .spec.host
+        - name: TURN
+          type: string
+          jsonPath: .status.turnAddress
+        - name: HTTP
+          type: boolean
+          jsonPath: .status.httpRouteReady
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                livekitIngress: { type: boolean }
+                stack: { type: string }
+                host: { type: string }
+                httpGatewayRef:
+                  type: object
+                  properties: { name: { type: string }, namespace: { type: string } }
+                udpGatewayRef:
+                  type: object
+                  properties: { name: { type: string }, namespace: { type: string } }
+                turnPort: { type: integer }
+                turnExternalAddress: { type: string }
+                redis:
+                  type: object
+                  properties: { mode: { type: string }, url: { type: string }, port: { type: integer } }
+            status:
+              type: object
+              properties:
+                conditions:
+                  type: array
+                  items: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                httpRouteReady: { type: boolean }
+                udpRouteReady: { type: boolean }
+                lbIP: { type: string }
+                turnAddress: { type: string }
+{{- end }}

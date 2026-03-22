@@ -17,4 +17,5 @@ keywords:
   - dcontroller
   - declarative
 maintainers:
-  - name: Sándor Bendegúz Lukácsi
+  - name: lukacsi
+    email: sandor@lukacsi.org

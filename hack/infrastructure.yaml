@@ -1,0 +1,74 @@
+# RTCInfrastructure — cluster-scoped, shared across all stacks
+# This is the platform engineer's config. One per cluster.
+#
+# MANAGED vs BYO:
+#   Each infrastructure component can be managed by the operator or brought-your-own.
+#   Toggle via labels:
+#     "enabled"  → operator creates and manages the resource
+#     "disabled" → operator does nothing, you manage it yourself
+#
+# COMMON SCENARIOS:
+#   Greenfield cloud:  stunner=enabled, certmanager=enabled  (operator sets up everything)
+#   Existing homelab:  stunner=disabled, certmanager=disabled (you have Traefik+cert-manager+STUNner already)
+#   Hybrid:            stunner=enabled, certmanager=disabled  (operator manages TURN, you handle TLS)
+#
+apiVersion: lukacsi.org/v1alpha1
+kind: RTCInfrastructure
+metadata:
+  name: default-infra
+  labels:
+    # Toggle managed infrastructure components
+    matrixrtc.lukacsi.org/stunner: "enabled"         # "enabled" or "disabled"
+    matrixrtc.lukacsi.org/certmanager: "disabled"    # "disabled" = BYO (you already have cert-manager + ClusterIssuer)
+    matrixrtc.lukacsi.org/cert-namespace: "cert-manager"  # only used when certmanager=enabled
+spec:
+  # Base domain — all services derive subdomains from this
+  domain: "lukacsi.org"
+
+  # --- HTTP Gateway ---
+  # BYO only — operator creates HTTPRoutes, not the gateway itself.
+  # Point this at your existing Traefik/Envoy/Cilium Gateway.
+  httpGateway:
+    name: "traefik-gateway"
+    namespace: "traefik"
+
+  # --- STUNner (TURN/STUN media gateway) ---
+  stunner:
+    # managed: true → operator creates GatewayConfig, GatewayClass, Gateway
+    # managed: false → user provides their own STUNner setup, operator just references it
+    # (controlled by the matrixrtc.lukacsi.org/stunner label above)
+    gatewayName: "udp-gateway"
+    gatewayNamespace: "stunner"
+    port: 3478
+    realm: "stunner.l7mp.io"
+    serviceType: "LoadBalancer"           # MetalLB assigns IP from pool (192.168.0.81-99)
+
+    # Static TURN endpoint — use when behind NAT/port-forward or hybrid setup
+    # If set, this overrides LB auto-discovery from Gateway status
+    # Cloud: leave unset, LB IP is discovered automatically
+    # Homelab: set to your public IP or domain with port forwarding
+    # Hybrid: set a domain that resolves differently per environment
+    externalAddress: "turn.lukacsi.org"              # OPTIONAL — omit for cloud auto-discovery
+
+    # STUNner TURN credentials (plaintext for now — will move to secretRef)
+    username: "user-1"
+    password: "pass-1"
+
+    # Default credential secret — pools that don't override use these
+    defaultKeyRef:
+      secretName: "stunner-auth"
+      usernameKey: "stunner-username"                # default
+      passwordKey: "stunner-password"                # default
+
+  # --- Cert-Manager ---
+  certManager:
+    # managed: true → operator creates ClusterIssuer + Certificate
+    # managed: false → user handles TLS (existing certs, external issuer)
+    # (controlled by the matrixrtc.lukacsi.org/certmanager label above)
+    email: "admin@lukacsi.org"
+    issuerRef:
+      name: "letsencrypt-prod"                       # default
+      kind: "ClusterIssuer"                          # default
+    cloudflareSecretRef:
+      name: "cloudflare-api-token"
+      key: "api-token"

@@ -1,0 +1,443 @@
+apiVersion: dcontroller.io/v1alpha1
+kind: Operator
+metadata:
+  name: matrixrtc-livekit-views-to-k8s
+  labels:
+    matrixrtc.lukacsi.org/component: operator
+    matrixrtc.lukacsi.org/role: livekit-materializer
+spec:
+  controllers:
+    # --- LIVEKIT SERVER ---
+    - name: server-view-to-deployment
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitServerView
+        - apiGroup: ""
+          kind: Secret
+      pipeline:
+        - "@join":
+            "@and":
+              - "@eq": ["$.LiveKitServerView.spec.livekit.keys.existingSecret", "$.Secret.metadata.name"]
+              - "@eq": ["$.LiveKitServerView.metadata.namespace", "$.Secret.metadata.namespace"]
+        - "@project":
+            apiVersion: "apps/v1"
+            kind: "Deployment"
+            metadata:
+              name: "livekit-server"
+              namespace: "$.LiveKitServerView.metadata.namespace"
+              labels:
+                app: "livekit-server"
+                matrixrtc.lukacsi.org/stack: "$.LiveKitServerView.spec.stack"
+                matrixrtc.lukacsi.org/component: livekit
+                matrixrtc.lukacsi.org/view: "$.LiveKitServerView.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+              annotations:
+                matrixrtc.lukacsi.org/redis: "$.LiveKitServerView.spec.redis.mode"
+            spec:
+              replicas:
+                "@definedOr": ["$.LiveKitServerView.status.replicas", 1]
+              selector: { matchLabels: { app: "livekit-server" } }
+              template:
+                metadata:
+                  labels:
+                    app: "livekit-server"
+                    matrixrtc.lukacsi.org/stack: "$.LiveKitServerView.spec.stack"
+                    matrixrtc.lukacsi.org/component: livekit
+                    matrixrtc.lukacsi.org/view: "$.LiveKitServerView.metadata.name"
+                    app.kubernetes.io/managed-by: matrix-rtc-operator
+                  annotations:
+                    matrixrtc.lukacsi.org/redis: "$.LiveKitServerView.spec.redis.mode"
+                    matrixrtc.lukacsi.org/secret-hash:
+                      "@hash": "$.Secret.data"
+                spec:
+                  containers:
+                    - name: livekit
+                      image: "$.LiveKitServerView.spec.livekit.image"
+                      command: ["/livekit-server"]
+                      args: ["--config", "/etc/livekit/livekit.yaml"]
+                      resources: "$.LiveKitServerView.spec.livekit.resources"
+                      ports: [{ name: http, containerPort: 7880 }]
+                      volumeMounts:
+                        - name: cfg
+                          mountPath: /etc/livekit
+                          readOnly: true
+                  volumes:
+                    - name: cfg
+                      secret: { secretName: "livekit-config" }
+      target:
+        apiGroup: "apps"
+        kind: "Deployment"
+        type: Updater
+
+    # --- LIVEKIT CONFIG (the core config generator with TURN address resolution) ---
+    - name: livekit-config-generator
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+        - apiGroup: lukacsi.org
+          kind: LiveKitServerView
+        - apiGroup: ""
+          kind: Secret
+      pipeline:
+        - "@join":
+            "@and":
+              - "@eq": ["$.LiveKitNetworkingView.metadata.name", "$.LiveKitServerView.spec.stack"]
+              - "@eq": ["$.LiveKitNetworkingView.metadata.namespace", "$.LiveKitServerView.metadata.namespace"]
+              - "@eq": ["$.LiveKitServerView.spec.livekit.keys.existingSecret", "$.Secret.metadata.name"]
+              - "@eq": ["$.LiveKitServerView.metadata.namespace", "$.Secret.metadata.namespace"]
+        # No gate — config is always generated. TURN address uses fallback if not yet available.
+        # When TURN address changes later, @hash triggers a rolling restart.
+        - "@project":
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: livekit-config
+              namespace: "$.LiveKitNetworkingView.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/stack: "$.LiveKitServerView.spec.stack"
+                matrixrtc.lukacsi.org/component: livekit
+                matrixrtc.lukacsi.org/view: "$.LiveKitNetworkingView.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            stringData:
+              livekit.yaml:
+                "@concat":
+                  - "keys:\n  "
+                  - "$.Secret.data['api-key']"
+                  - ": "
+                  - "$.Secret.data['api-secret']"
+                  - "\nlog_level: info\nport: 7880\nredis:\n  address: "
+                  - "$.LiveKitNetworkingView.spec.redis.url"
+                  - "\n  password: "
+                  - "$.Secret.data['redis-password']"
+                  - "\n\nrtc:\n  port_range_end: 60000\n  port_range_start: 50000\n  turn_servers:\n    - credential: "
+                  - "$.Secret.data['stunner-password']"
+                  - "\n      host: "
+                  # TURN address: static → discovered → placeholder
+                  - "@definedOr":
+                      - "$.LiveKitNetworkingView.spec.turnExternalAddress"
+                      - "@definedOr":
+                          - "$.LiveKitNetworkingView.status.lbIP"
+                          - "0.0.0.0"
+                  - "\n      port: "
+                  - "@string": "$.LiveKitNetworkingView.spec.turnPort"
+                  - "\n      protocol: udp\n      username: "
+                  - "$.Secret.data['stunner-username']"
+                  - "\n  use_external_ip: false\nturn:\n  enabled: false"
+      target:
+        apiGroup: ""
+        kind: Secret
+        type: Updater
+
+    # --- LIVEKIT SERVICE ---
+    - name: networking-view-to-svc
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+          predicate: GenerationChanged
+      pipeline:
+        - "@project":
+            apiVersion: "v1"
+            kind: "Service"
+            metadata:
+              name: "livekit-sig"
+              namespace: "$.metadata.namespace"
+              labels:
+                app: "livekit-server"
+                matrixrtc.lukacsi.org/component: livekit
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/view: "$.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              selector: { app: "livekit-server" }
+              ports: [{ name: http, port: 7880, targetPort: 7880 }]
+      target:
+        apiGroup: ""
+        kind: "Service"
+        type: Updater
+
+    # --- HTTPRoute (gateway-agnostic — works with Traefik, Envoy, Cilium) ---
+    - name: networking-view-to-httproute
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+          predicate: GenerationChanged
+      pipeline:
+        - "@project":
+            apiVersion: gateway.networking.k8s.io/v1
+            kind: "HTTPRoute"
+            metadata:
+              name: livekit
+              namespace: "$.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/component: http
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/view: "$.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              parentRefs:
+                - name: "$.spec.httpGatewayRef.name"
+                  namespace: "$.spec.httpGatewayRef.namespace"
+              hostnames: ["$.spec.host"]
+              rules:
+                - backendRefs:
+                    - name: livekit-sig
+                      port: 7880
+      target:
+        apiGroup: gateway.networking.k8s.io
+        kind: "HTTPRoute"
+        type: Updater
+
+    # --- UDPRoute (STUNner) ---
+    - name: networking-view-to-udproute
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+          predicate: GenerationChanged
+      pipeline:
+        - "@project":
+            apiVersion: stunner.l7mp.io/v1
+            kind: "UDPRoute"
+            metadata:
+              name: livekit-media
+              namespace: "$.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/component: stunner
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/view: "$.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              parentRefs:
+                - name: "$.spec.udpGatewayRef.name"
+                  namespace: "$.spec.udpGatewayRef.namespace"
+              rules:
+                - backendRefs:
+                    - name: "livekit-sig"
+                      namespace: "$.metadata.namespace"
+      target:
+        apiGroup: stunner.l7mp.io
+        kind: "UDPRoute"
+        type: Updater
+
+    # --- REDIS (managed mode only) ---
+    - name: server-view-to-redis-statefulset
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitServerView
+          predicate: GenerationChanged
+      pipeline:
+        - "@select":
+            "@eq": ["$.spec.redis.mode", "managed"]
+        - "@project":
+            apiVersion: apps/v1
+            kind: StatefulSet
+            metadata:
+              namespace: "$.metadata.namespace"
+              name: "redis"
+              labels:
+                app: "redis"
+                matrixrtc.lukacsi.org/component: redis
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/view: "$.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              serviceName: "redis"
+              selector:
+                matchLabels: { app: "redis" }
+              template:
+                metadata:
+                  labels:
+                    app: "redis"
+                    matrixrtc.lukacsi.org/component: redis
+                    matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                    matrixrtc.lukacsi.org/view: "$.metadata.name"
+                    app.kubernetes.io/managed-by: matrix-rtc-operator
+                spec:
+                  containers:
+                    - name: redis
+                      image: "$.spec.redis.image"
+                      ports:
+                        - name: redis
+                          containerPort: "$.spec.redis.port"
+                      args: ["--appendonly", "yes"]
+                      resources: "$.spec.redis.resources"
+                      volumeMounts:
+                        - name: data
+                          mountPath: /data
+                  volumes:
+                    - name: data
+                      emptyDir: {}
+      target:
+        apiGroup: apps
+        kind: StatefulSet
+        type: Updater
+
+    - name: networking-view-to-redis-service
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+          predicate: GenerationChanged
+      pipeline:
+        - "@select":
+            "@eq": ["$.spec.redis.mode", "managed"]
+        - "@project":
+            apiVersion: v1
+            kind: Service
+            metadata:
+              namespace: "$.metadata.namespace"
+              name: "redis"
+              labels:
+                matrixrtc.lukacsi.org/component: redis
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/view: "$.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              type: ClusterIP
+              selector: { app: "redis" }
+              ports:
+                - name: redis
+                  port: "$.spec.redis.port"
+                  targetPort: "$.spec.redis.port"
+      target:
+        apiGroup: ""
+        kind: Service
+        type: Updater
+
+    # --- LIVEKIT INGRESS (optional RTMP bridge) ---
+    - name: server-view-to-ingress-deployment
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitServerView
+        - apiGroup: ""
+          kind: Secret
+      pipeline:
+        - "@join":
+            "@and":
+              - "@eq": ["$.LiveKitServerView.spec.livekit.keys.existingSecret", "$.Secret.metadata.name"]
+              - "@eq": ["$.LiveKitServerView.metadata.namespace", "$.Secret.metadata.namespace"]
+        - "@select":
+            "@eq": ["$.LiveKitServerView.spec.livekit.ingress.enabled", true]
+        - "@project":
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: livekit-ingress
+              namespace: "$.LiveKitServerView.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/component: ingress
+                matrixrtc.lukacsi.org/stack: "$.LiveKitServerView.spec.stack"
+                matrixrtc.lukacsi.org/view: "$.LiveKitServerView.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+              annotations:
+                matrixrtc.lukacsi.org/redis: "$.LiveKitServerView.spec.redis.mode"
+            spec:
+              selector:
+                matchLabels: { app: livekit-ingress }
+              template:
+                metadata:
+                  labels:
+                    app: livekit-ingress
+                    matrixrtc.lukacsi.org/component: ingress
+                    matrixrtc.lukacsi.org/stack: "$.LiveKitServerView.spec.stack"
+                    matrixrtc.lukacsi.org/view: "$.LiveKitServerView.metadata.name"
+                    app.kubernetes.io/managed-by: matrix-rtc-operator
+                  annotations:
+                    matrixrtc.lukacsi.org/redis: "$.LiveKitServerView.spec.redis.mode"
+                    matrixrtc.lukacsi.org/secret-hash:
+                      "@hash": "$.Secret.data"
+                spec:
+                  containers:
+                    - name: livekit-ingress
+                      image: "$.LiveKitServerView.spec.livekit.ingress.image"
+                      command: ["/bin/ingress"]
+                      args: ["--config", "/etc/livekit/ingress.yaml"]
+                      ports:
+                        - { name: rtmp, containerPort: 1935, protocol: TCP }
+                        - { name: http, containerPort: 8080 }
+                      volumeMounts:
+                        - name: ingress-config
+                          mountPath: /etc/livekit
+                          readOnly: true
+                      resources: "$.LiveKitServerView.spec.livekit.ingress.resources"
+                  volumes:
+                    - name: ingress-config
+                      secret: { secretName: ingress-config }
+      target:
+        apiGroup: apps
+        kind: Deployment
+        type: Updater
+
+    - name: networking-view-to-ingress-service
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+          predicate: GenerationChanged
+      pipeline:
+        - "@select":
+            "@eq": ["$.spec.livekitIngress", true]
+        - "@project":
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: livekit-ingress
+              namespace: "$.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/component: ingress
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/view: "$.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              selector: { app: livekit-ingress }
+              type: LoadBalancer
+              ports:
+                - { name: rtmp, port: 1935, targetPort: 1935, protocol: TCP }
+      target:
+        apiGroup: ""
+        kind: Service
+        type: Updater
+
+    - name: ingress-config-generator
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+        - apiGroup: lukacsi.org
+          kind: LiveKitServerView
+        - apiGroup: ""
+          kind: Secret
+      pipeline:
+        - "@join":
+            "@and":
+              - "@eq": ["$.LiveKitNetworkingView.metadata.name", "$.LiveKitServerView.spec.stack"]
+              - "@eq": ["$.LiveKitNetworkingView.metadata.namespace", "$.LiveKitServerView.metadata.namespace"]
+              - "@eq": ["$.LiveKitServerView.spec.livekit.keys.existingSecret", "$.Secret.metadata.name"]
+              - "@eq": ["$.LiveKitServerView.metadata.namespace", "$.Secret.metadata.namespace"]
+        - "@select":
+            "@eq": ["$.LiveKitNetworkingView.spec.livekitIngress", true]
+        - "@project":
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: ingress-config
+              namespace: "$.LiveKitNetworkingView.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/stack: "$.LiveKitServerView.spec.stack"
+                matrixrtc.lukacsi.org/component: ingress
+                matrixrtc.lukacsi.org/view: "$.LiveKitNetworkingView.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            stringData:
+              ingress.yaml:
+                "@concat":
+                  - "ws_url: ws://livekit-sig."
+                  - "$.LiveKitNetworkingView.metadata.namespace"
+                  - ".svc.cluster.local:7880\napi_key: "
+                  - "$.Secret.data['api-key']"
+                  - "\napi_secret: "
+                  - "$.Secret.data['api-secret']"
+                  - "\nredis:\n  address: "
+                  - "$.LiveKitNetworkingView.spec.redis.url"
+                  - "\n  password: "
+                  - "$.Secret.data['redis-password']"
+                  - "\nrtmp_port: 1935\nlogging:\n  level: info"
+      target:
+        apiGroup: ""
+        kind: Secret
+        type: Updater

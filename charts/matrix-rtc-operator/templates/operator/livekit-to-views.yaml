@@ -1,0 +1,123 @@
+apiVersion: dcontroller.io/v1alpha1
+kind: Operator
+metadata:
+  name: matrixrtc-livekit-to-views
+  labels:
+    matrixrtc.lukacsi.org/component: operator
+    matrixrtc.lukacsi.org/role: livekit-views
+spec:
+  controllers:
+    - name: livekit-to-server-view
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitStack
+          predicate: GenerationChanged
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+      pipeline:
+        - "@join":
+            "@eq":
+              - "@definedOr": ["$.LiveKitStack.spec.infraRef", "default-infra"]
+              - "$.RTCInfrastructure.metadata.name"
+        - "@project":
+            apiVersion: "lukacsi.org/v1alpha1"
+            kind: "LiveKitServerView"
+            metadata:
+              name: "$.LiveKitStack.metadata.name"
+              namespace: "$.LiveKitStack.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/stack: "$.LiveKitStack.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              stack: "$.LiveKitStack.metadata.name"
+              livekit: "$.LiveKitStack.spec.livekit"
+              redis: "$.LiveKitStack.spec.redis"
+              stunnerKeys:
+                existingSecret:
+                  "@definedOr":
+                    - "$.LiveKitStack.spec.gateways.udp.keys.existingSecret"
+                    - "$.RTCInfrastructure.spec.stunner.defaultKeyRef.secretName"
+                usernameKey:
+                  "@definedOr":
+                    - "$.LiveKitStack.spec.gateways.udp.keys.usernameKey"
+                    - "$.RTCInfrastructure.spec.stunner.defaultKeyRef.usernameKey"
+                passwordKey:
+                  "@definedOr":
+                    - "$.LiveKitStack.spec.gateways.udp.keys.passwordKey"
+                    - "$.RTCInfrastructure.spec.stunner.defaultKeyRef.passwordKey"
+      target:
+        apiGroup: "lukacsi.org"
+        kind: "LiveKitServerView"
+        type: Updater
+
+    - name: livekit-to-networking-view
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitStack
+          predicate: GenerationChanged
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+      pipeline:
+        - "@join":
+            "@eq":
+              - "@definedOr": ["$.LiveKitStack.spec.infraRef", "default-infra"]
+              - "$.RTCInfrastructure.metadata.name"
+        - "@project":
+            apiVersion: "lukacsi.org/v1alpha1"
+            kind: "LiveKitNetworkingView"
+            metadata:
+              name: "$.LiveKitStack.metadata.name"
+              namespace: "$.LiveKitStack.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/stack: "$.LiveKitStack.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              livekitIngress: "$.LiveKitStack.spec.livekit.ingress.enabled"
+              stack: "$.LiveKitStack.metadata.name"
+              host:
+                "@definedOr":
+                  - "$.LiveKitStack.spec.gateways.host"
+                  - "$.RTCInfrastructure.spec.domain"
+              httpGatewayRef:
+                name:
+                  "@definedOr":
+                    - "$.LiveKitStack.spec.gateways.http.name"
+                    - "$.RTCInfrastructure.spec.httpGateway.name"
+                namespace:
+                  "@definedOr":
+                    - "$.LiveKitStack.spec.gateways.http.namespace"
+                    - "$.RTCInfrastructure.spec.httpGateway.namespace"
+              udpGatewayRef:
+                name:
+                  "@definedOr":
+                    - "$.LiveKitStack.spec.gateways.udp.name"
+                    - "$.RTCInfrastructure.spec.stunner.gatewayName"
+                namespace:
+                  "@definedOr":
+                    - "$.LiveKitStack.spec.gateways.udp.namespace"
+                    - "$.RTCInfrastructure.spec.stunner.gatewayNamespace"
+              turnPort:
+                "@definedOr":
+                  - "$.LiveKitStack.spec.gateways.udp.port"
+                  - "$.RTCInfrastructure.spec.stunner.port"
+              # TURN address resolution: stack override → infra override → auto-discover from Gateway
+              turnExternalAddress:
+                "@definedOr":
+                  - "$.LiveKitStack.spec.gateways.udp.externalAddress"
+                  - "$.RTCInfrastructure.spec.stunner.externalAddress"
+              redis:
+                mode: "$.LiveKitStack.spec.redis.mode"
+                port: "$.LiveKitStack.spec.redis.port"
+                url:
+                  "@cond":
+                    - "@eq": ["$.LiveKitStack.spec.redis.mode", "external"]
+                    - "$.LiveKitStack.spec.redis.externalUrl"
+                    - "@concat":
+                        - "redis."
+                        - "$.LiveKitStack.metadata.namespace"
+                        - ".svc.cluster.local:"
+                        - "$.LiveKitStack.spec.redis.port"
+      target:
+        apiGroup: "lukacsi.org"
+        kind: "LiveKitNetworkingView"
+        type: Updater

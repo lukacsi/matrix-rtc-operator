@@ -1,0 +1,152 @@
+{{- if .Values.crds.create }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: livekitstacks.lukacsi.org
+  labels:
+    app.kubernetes.io/managed-by: matrix-rtc-operator
+  annotations:
+    "helm.sh/resource-policy": keep
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  group: lukacsi.org
+  scope: Namespaced
+  names:
+    kind: LiveKitStack
+    plural: livekitstacks
+    singular: livekitstack
+    shortNames: ["lks"]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Ready
+          type: string
+          jsonPath: .status.ready
+        - name: Status
+          type: string
+          jsonPath: .status.message
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: ["spec"]
+          properties:
+            spec:
+              type: object
+              required: ["livekit", "redis"]
+              properties:
+                # Optional — auto-discovers single RTCInfrastructure if omitted
+                infraRef: { type: string }
+
+                livekit:
+                  type: object
+                  required: ["image", "keys"]
+                  properties:
+                    image: { type: string }
+                    keys:
+                      type: object
+                      required: ["existingSecret", "apiKeyKey", "apiSecretKey"]
+                      properties:
+                        existingSecret: { type: string, description: "Secret containing LiveKit API credentials" }
+                        apiKeyKey: { type: string }
+                        apiSecretKey: { type: string }
+                    resources:
+                      type: object
+                      properties:
+                        requests: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                        limits: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                    ingress:
+                      type: object
+                      default: {}
+                      properties:
+                        enabled: { type: boolean, default: false }
+                        image: { type: string }
+                        resources:
+                          type: object
+                          properties:
+                            requests: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                            limits: { type: object, x-kubernetes-preserve-unknown-fields: true }
+
+                # --- Networking ---
+                gateways:
+                  type: object
+                  properties:
+                    host:
+                      type: string
+                      description: "Hostname for LiveKit signaling (e.g. livekit.lukacsi.org). Falls back to infra domain."
+                    http:
+                      type: object
+                      description: "Override HTTP gateway ref from infra"
+                      properties:
+                        name: { type: string }
+                        namespace: { type: string }
+                    udp:
+                      type: object
+                      description: "Override STUNner gateway ref from infra"
+                      properties:
+                        name: { type: string }
+                        namespace: { type: string }
+                        port: { type: integer }
+                        externalAddress:
+                          type: string
+                          description: "Override TURN address for this stack (takes precedence over infra)"
+                        keys:
+                          type: object
+                          description: "Override STUNner credentials for this stack"
+                          properties:
+                            existingSecret: { type: string }
+                            usernameKey: { type: string }
+                            passwordKey: { type: string }
+
+                # --- Redis ---
+                redis:
+                  type: object
+                  required: ["keys"]
+                  properties:
+                    mode: { type: string, enum: ["managed", "external"], default: "managed" }
+                    image: { type: string, default: "redis:7-alpine" }
+                    port: { type: integer, default: 6379 }
+                    resources:
+                      type: object
+                      properties:
+                        requests: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                        limits: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                    externalUrl: { type: string, description: "Connection URL for external Redis (when mode=external)" }
+                    keys:
+                      type: object
+                      required: ["existingSecret", "passwordKey"]
+                      properties:
+                        existingSecret: { type: string }
+                        passwordKey: { type: string }
+
+            status:
+              type: object
+              properties:
+                ready: { type: boolean }
+                message: { type: string }
+                host: { type: string }
+                conditions:
+                  type: array
+                  items: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                components:
+                  type: object
+                  properties:
+                    server:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    ingress:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    networking:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    redis:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+{{- end }}

@@ -1,0 +1,122 @@
+# LiveKitStack — full example with all fields
+# This is the application developer's config. One per LiveKit deployment.
+apiVersion: lukacsi.org/v1alpha1
+kind: LiveKitStack
+metadata:
+  name: my-livekit
+  namespace: livekit
+spec:
+  # Reference to the cluster-scoped RTCInfrastructure
+  # OPTIONAL — if omitted, auto-discovers the single RTCInfrastructure in the cluster
+  # infraRef: "default-infra"
+
+  # --- LiveKit Server ---
+  livekit:
+    image: "livekit/livekit-server:v1.8.0"
+    keys:
+      existingSecret: "livekit-auth"                 # Secret containing API credentials
+      apiKeyKey: "api-key"                           # key in Secret for the API key name
+      apiSecretKey: "api-secret"                     # key in Secret for the API secret
+
+    # Resource requests/limits — passthrough to container spec
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+      limits:
+        cpu: "2"
+        memory: "2Gi"
+
+    # RTMP Ingress bridge (optional — for OBS/streaming software)
+    ingress:
+      enabled: false                                 # set true to deploy livekit-ingress
+      # image: "livekit/ingress:v1.4.3"             # required when enabled
+      # resources:
+      #   requests:
+      #     cpu: "250m"
+      #     memory: "256Mi"
+
+  # --- Networking ---
+  gateways:
+    # Hostname for LiveKit signaling endpoint
+    # Falls back to RTCInfrastructure.spec.domain if not set
+    host: "livekit.lukacsi.org"
+
+    # Override HTTP gateway from infra (usually not needed)
+    # http:
+    #   name: "my-custom-gateway"
+    #   namespace: "custom-ns"
+
+    # Override STUNner config from infra
+    udp:
+      # Override gateway reference
+      # name: "my-stunner-gateway"
+      # namespace: "stunner"
+      # port: 3478
+
+      # Static TURN address — overrides both infra externalAddress and LB discovery
+      # Use for per-stack TURN endpoint (e.g., geo-specific)
+      # externalAddress: "turn-eu.lukacsi.org"
+
+      # Override STUNner credentials for this stack
+      # If not set, falls back to RTCInfrastructure.spec.stunner.defaultKeyRef
+      keys:
+        existingSecret: "livekit-auth"               # can reuse the same Secret
+        usernameKey: "stunner-username"
+        passwordKey: "stunner-password"
+
+  # --- Redis ---
+  redis:
+    mode: "managed"                                  # "managed" or "external"
+    image: "redis:7-alpine"                          # default
+    port: 6379                                       # default
+
+    # Managed mode: operator creates a Redis StatefulSet
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      # limits:
+      #   cpu: "500m"
+      #   memory: "512Mi"
+
+    # External mode: provide connection URL (Redis StatefulSet is NOT created)
+    # externalUrl: "redis.managed-redis.svc.cluster.local:6379"
+
+    # Redis credentials
+    keys:
+      existingSecret: "livekit-auth"
+      passwordKey: "redis-password"
+
+---
+# Example Secret with all required credentials
+# In production, use SOPS-encrypted or sealed secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: livekit-auth
+  namespace: livekit
+type: Opaque
+stringData:
+  # LiveKit API credentials
+  api-key: "devkey"
+  api-secret: "secret-change-me-in-production"
+
+  # Redis password
+  redis-password: "redis-change-me"
+
+  # STUNner TURN credentials (must match RTCInfrastructure or override)
+  stunner-username: "user-1"
+  stunner-password: "pass-1"
+
+---
+# (Optional) Standalone STUNner auth secret — if you want separate secrets per stack
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: stunner-auth
+#   namespace: livekit
+# type: Opaque
+# stringData:
+#   stunner-username: "user-1"
+#   stunner-password: "pass-1"

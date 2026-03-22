@@ -1,0 +1,131 @@
+{{- if .Values.crds.create }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: rtcinfrastructures.lukacsi.org
+  labels:
+    app.kubernetes.io/managed-by: matrix-rtc-operator
+  annotations:
+    "helm.sh/resource-policy": keep
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  group: lukacsi.org
+  scope: Cluster
+  names:
+    kind: RTCInfrastructure
+    plural: rtcinfrastructures
+    singular: rtcinfrastructure
+    shortNames: ["rtci"]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Domain
+          type: string
+          jsonPath: .spec.domain
+        - name: TURN
+          type: string
+          jsonPath: .status.stunner.address
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: ["domain"]
+              properties:
+                domain:
+                  type: string
+                  description: "Base domain for all services (e.g. lukacsi.org)"
+
+                # --- HTTP Gateway (BYO — operator creates routes, not the gateway) ---
+                httpGateway:
+                  type: object
+                  description: "Reference to an existing Gateway API Gateway for HTTP/HTTPS traffic"
+                  properties:
+                    name: { type: string, default: "traefik-gateway" }
+                    namespace: { type: string, default: "traefik" }
+
+                # --- STUNner (managed or BYO) ---
+                stunner:
+                  type: object
+                  description: "TURN/STUN media gateway configuration"
+                  properties:
+                    managed:
+                      type: boolean
+                      default: true
+                      description: "If true, operator creates STUNner GatewayConfig/GatewayClass/Gateway. If false, user provides their own."
+                    gatewayName: { type: string, default: "udp-gateway" }
+                    gatewayNamespace: { type: string, default: "stunner" }
+                    port: { type: integer, default: 3478 }
+                    realm: { type: string, default: "stunner.l7mp.io" }
+                    serviceType:
+                      type: string
+                      enum: ["NodePort", "LoadBalancer"]
+                      default: "LoadBalancer"
+                      description: "Service type for STUNner Gateway. LoadBalancer for cloud (default), NodePort for homelab."
+                    nodePort:
+                      type: integer
+                      description: "Fixed NodePort number (30000-32767). Only used when serviceType is NodePort."
+                    # Static TURN endpoint — use when behind NAT/port-forward or when you want a domain name
+                    # If set, this overrides auto-discovery from Gateway status
+                    # Examples: "turn.lukacsi.org", "203.0.113.50"
+                    externalAddress:
+                      type: string
+                      description: "Static TURN address (domain or IP). Overrides LB auto-discovery. Use for homelab/NAT/hybrid."
+                    # Credentials — plaintext in spec (move to secretRef when dcontroller supports it)
+                    username: { type: string }
+                    password: { type: string }
+                    defaultKeyRef:
+                      type: object
+                      description: "Secret containing default STUNner credentials for pools that don't override"
+                      properties:
+                        secretName: { type: string }
+                        usernameKey: { type: string, default: "stunner-username" }
+                        passwordKey: { type: string, default: "stunner-password" }
+
+                # --- Cert-Manager (managed or BYO) ---
+                certManager:
+                  type: object
+                  description: "TLS certificate automation via cert-manager"
+                  properties:
+                    managed:
+                      type: boolean
+                      default: true
+                      description: "If true, operator creates ClusterIssuer + Certificate. If false, user manages TLS."
+                    email: { type: string }
+                    issuerRef:
+                      type: object
+                      properties:
+                        name: { type: string, default: "letsencrypt-prod" }
+                        kind: { type: string, default: "ClusterIssuer" }
+                    cloudflareSecretRef:
+                      type: object
+                      properties:
+                        name: { type: string }
+                        key: { type: string }
+
+            status:
+              type: object
+              properties:
+                stunner:
+                  type: object
+                  properties:
+                    ready: { type: boolean }
+                    lbIP: { type: string, description: "Auto-discovered LB IP from Gateway status" }
+                    address: { type: string, description: "Effective TURN address — externalAddress if set, else lbIP" }
+                certificate:
+                  type: object
+                  properties:
+                    ready: { type: boolean }
+                    notAfter: { type: string }
+                conditions:
+                  type: array
+                  items: { type: object, x-kubernetes-preserve-unknown-fields: true }
+{{- end }}

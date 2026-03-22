@@ -1,0 +1,272 @@
+apiVersion: dcontroller.io/v1alpha1
+kind: Operator
+metadata:
+  name: matrixrtc-infra-manager
+  labels:
+    matrixrtc.lukacsi.org/component: operator
+    matrixrtc.lukacsi.org/role: infra
+spec:
+  controllers:
+    # --- Cert-Manager (managed mode only) ---
+    # When matrixrtc.lukacsi.org/certmanager label is "disabled", these controllers are dormant.
+    # BYO: user manages their own ClusterIssuer + Certificate, operator just creates HTTPRoutes.
+    - name: infra-to-certificate
+      sources:
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+      pipeline:
+        - "@select":
+            "@eq":
+              - "$.metadata.labels['matrixrtc.lukacsi.org/certmanager']"
+              - "enabled"
+        - "@project":
+            apiVersion: cert-manager.io/v1
+            kind: Certificate
+            metadata:
+              name: matrixrtc-wildcard-cert
+              namespace: "$.metadata.labels['matrixrtc.lukacsi.org/cert-namespace']"
+              labels:
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              secretName: matrixrtc-tls
+              issuerRef:
+                kind: "$.spec.certManager.issuerRef.kind"
+                name: "$.spec.certManager.issuerRef.name"
+              dnsNames:
+                - "$.spec.domain"
+      target:
+        apiGroup: cert-manager.io
+        kind: Certificate
+        type: Updater
+
+    - name: infra-to-clusterissuer
+      sources:
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+      pipeline:
+        - "@select":
+            "@eq":
+              - "$.metadata.labels['matrixrtc.lukacsi.org/certmanager']"
+              - "enabled"
+        - "@project":
+            apiVersion: cert-manager.io/v1
+            kind: ClusterIssuer
+            metadata:
+              name: "$.spec.certManager.issuerRef.name"
+              labels:
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              acme:
+                email: "$.spec.certManager.email"
+                server: https://acme-v02.api.letsencrypt.org/directory
+                privateKeySecretRef: { name: le-account-key }
+                solvers:
+                  - dns01:
+                      cloudflare:
+                        apiTokenSecretRef:
+                          name: "$.spec.certManager.cloudflareSecretRef.name"
+                          key: "$.spec.certManager.cloudflareSecretRef.key"
+      target:
+        apiGroup: cert-manager.io
+        kind: ClusterIssuer
+        type: Updater
+
+    # --- STUNner (managed mode only) ---
+    - name: infra-to-stunner-config
+      sources:
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+      pipeline:
+        - "@select":
+            "@eq":
+              - "$.metadata.labels['matrixrtc.lukacsi.org/stunner']"
+              - "enabled"
+        - "@project":
+            apiVersion: stunner.l7mp.io/v1
+            kind: GatewayConfig
+            metadata:
+              name: stunner-gatewayconfig
+              namespace: "$.spec.stunner.gatewayNamespace"
+              labels:
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              realm: "$.spec.stunner.realm"
+              authType: static
+              userName: "$.spec.stunner.username"
+              password: "$.spec.stunner.password"
+      target:
+        apiGroup: stunner.l7mp.io
+        kind: GatewayConfig
+        type: Updater
+
+    - name: infra-to-stunner-gatewayclass
+      sources:
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+      pipeline:
+        - "@select":
+            "@eq":
+              - "$.metadata.labels['matrixrtc.lukacsi.org/stunner']"
+              - "enabled"
+        - "@project":
+            apiVersion: gateway.networking.k8s.io/v1
+            kind: GatewayClass
+            metadata:
+              name: stunner-gatewayclass
+              labels:
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              controllerName: stunner.l7mp.io/gateway-operator
+              parametersRef:
+                group: stunner.l7mp.io
+                kind: GatewayConfig
+                name: stunner-gatewayconfig
+                namespace: "$.spec.stunner.gatewayNamespace"
+      target:
+        apiGroup: gateway.networking.k8s.io
+        kind: GatewayClass
+        type: Updater
+
+    - name: infra-to-stunner-gateway
+      sources:
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+      pipeline:
+        - "@select":
+            "@eq":
+              - "$.metadata.labels['matrixrtc.lukacsi.org/stunner']"
+              - "enabled"
+        - "@project":
+            apiVersion: gateway.networking.k8s.io/v1
+            kind: Gateway
+            metadata:
+              name: "$.spec.stunner.gatewayName"
+              namespace: "$.spec.stunner.gatewayNamespace"
+              labels:
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+              annotations:
+                stunner.l7mp.io/service-type:
+                  "@definedOr":
+                    - "$.spec.stunner.serviceType"
+                    - "LoadBalancer"
+                stunner.l7mp.io/nodeport:
+                  "@concat":
+                    - "{\"udp-listener\": "
+                    - "@string":
+                        "@definedOr":
+                          - "$.spec.stunner.nodePort"
+                          - 0
+                    - "}"
+            spec:
+              gatewayClassName: stunner-gatewayclass
+              listeners:
+                - name: udp-listener
+                  port: "$.spec.stunner.port"
+                  protocol: TURN-UDP
+                  allowedRoutes: { namespaces: { from: All } }
+      target:
+        apiGroup: gateway.networking.k8s.io
+        kind: Gateway
+        type: Updater
+
+    # --- Infrastructure status aggregation ---
+
+    # Static TURN address — sets address and ready from externalAddress (no Gateway needed)
+    - name: static-stunner-address-to-infra
+      sources:
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+      pipeline:
+        - "@select":
+            "@exists": "$.spec.stunner.externalAddress"
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: RTCInfrastructure
+            metadata:
+              name: "$.metadata.name"
+            status:
+              stunner:
+                address: "$.spec.stunner.externalAddress"
+      target:
+        apiGroup: lukacsi.org
+        kind: RTCInfrastructure
+        type: Patcher
+
+    # Gateway TURN discovery — discovers LB IP and Gateway health (cloud/LB deployments)
+    - name: stunner-gateway-status-to-infra
+      sources:
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+        - apiGroup: gateway.networking.k8s.io
+          kind: Gateway
+          labelSelector:
+            matchLabels:
+              "app.kubernetes.io/managed-by": "matrix-rtc-operator"
+      pipeline:
+        - "@join":
+            "@and":
+              - "@eq": ["$.RTCInfrastructure.spec.stunner.gatewayName", "$.Gateway.metadata.name"]
+              - "@eq": ["$.RTCInfrastructure.spec.stunner.gatewayNamespace", "$.Gateway.metadata.namespace"]
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: RTCInfrastructure
+            metadata:
+              name: "$.RTCInfrastructure.metadata.name"
+            status:
+              stunner:
+                lbIP: "$.Gateway.status.addresses[0].value"
+                address:
+                  "@definedOr":
+                    - "$.RTCInfrastructure.spec.stunner.externalAddress"
+                    - "$.Gateway.status.addresses[0].value"
+                ready:
+                  "@or":
+                    - "@exists": "$.RTCInfrastructure.spec.stunner.externalAddress"
+                    - "@gt":
+                        - "@len":
+                            "@filter":
+                              - "@and":
+                                  - "@eq": ["$$.type", "Programmed"]
+                                  - "@eq": ["$$.status", "True"]
+                              - "@definedOr": ["$.Gateway.status.conditions", []]
+                        - 0
+      target:
+        apiGroup: lukacsi.org
+        kind: RTCInfrastructure
+        type: Patcher
+
+    - name: certificate-status-to-infra
+      sources:
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+        - apiGroup: cert-manager.io
+          kind: Certificate
+          labelSelector:
+            matchLabels:
+              "app.kubernetes.io/managed-by": "matrix-rtc-operator"
+      pipeline:
+        - "@join":
+            "@eq":
+              - "matrixrtc-wildcard-cert"
+              - "$.Certificate.metadata.name"
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: RTCInfrastructure
+            metadata:
+              name: "$.RTCInfrastructure.metadata.name"
+            status:
+              certificate:
+                ready:
+                  "@gt":
+                    - "@len":
+                        "@filter":
+                          - "@and":
+                              - "@eq": ["$$.type", "Ready"]
+                              - "@eq": ["$$.status", "True"]
+                          - "@definedOr": ["$.Certificate.status.conditions", []]
+                    - 0
+                notAfter: "$.Certificate.status.notAfter"
+      target:
+        apiGroup: lukacsi.org
+        kind: RTCInfrastructure
+        type: Patcher
