@@ -64,6 +64,33 @@ spec:
         kind: MatrixNetworkingView
         type: Patcher
 
+    # Element Web deployment status → MatrixNetworkingView
+    - name: element-status-to-networking-view
+      sources:
+        - apiGroup: apps
+          kind: Deployment
+          labelSelector:
+            matchLabels:
+              "matrixrtc.lukacsi.org/component": "element"
+      pipeline:
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: MatrixNetworkingView
+            metadata:
+              name: "$.metadata.labels['matrixrtc.lukacsi.org/view']"
+              namespace: "$.metadata.namespace"
+            status:
+              clients:
+                element:
+                  ready:
+                    "@gt": [{ "@definedOr": ["$.status.readyReplicas", 0] }, 0]
+                  replicas: "$.status.replicas"
+                  readyReplicas: "$.status.readyReplicas"
+      target:
+        apiGroup: lukacsi.org
+        kind: MatrixNetworkingView
+        type: Patcher
+
     # --- Aggregate → MatrixStack (single writer, no Patcher race) ---
     # DB readiness is implicit: if CNPG isn't ready, config secret doesn't exist,
     # Synapse can't start, so Deployment readyReplicas=0.

@@ -50,16 +50,45 @@ spec:
                       type: object
                       properties:
                         enabled: { type: boolean }
+                        image: { type: string }
+                        replicas: { type: integer }
+                        resources:
+                          type: object
+                          properties:
+                            requests: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                            limits: { type: object, x-kubernetes-preserve-unknown-fields: true }
                         host: { type: string }
                     cinny:
                       type: object
                       properties:
                         enabled: { type: boolean }
+                        image: { type: string }
+                        replicas: { type: integer }
+                        resources:
+                          type: object
+                          properties:
+                            requests: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                            limits: { type: object, x-kubernetes-preserve-unknown-fields: true }
                         host: { type: string }
             status:
               type: object
               properties:
                 httpRouteReady: { type: boolean }
+                clients:
+                  type: object
+                  properties:
+                    element:
+                      type: object
+                      properties:
+                        ready: { type: boolean }
+                        replicas: { type: integer }
+                        readyReplicas: { type: integer }
+                    cinny:
+                      type: object
+                      properties:
+                        ready: { type: boolean }
+                        replicas: { type: integer }
+                        readyReplicas: { type: integer }
                 conditions:
                   type: array
                   items: { type: object, x-kubernetes-preserve-unknown-fields: true }

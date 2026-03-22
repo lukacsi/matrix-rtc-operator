@@ -133,6 +133,11 @@ spec:
                 element:
                   enabled:
                     "@definedOr": ["$.MatrixStack.spec.clients.element.enabled", true]
+                  image:
+                    "@definedOr": ["$.MatrixStack.spec.clients.element.image", "vectorim/element-web:v1.11.86"]
+                  replicas:
+                    "@definedOr": ["$.MatrixStack.spec.clients.element.replicas", 1]
+                  resources: "$.MatrixStack.spec.clients.element.resources"
                   host:
                     "@definedOr":
                       - "$.MatrixStack.spec.clients.element.host"
@@ -142,6 +147,11 @@ spec:
                 cinny:
                   enabled:
                     "@definedOr": ["$.MatrixStack.spec.clients.cinny.enabled", false]
+                  image:
+                    "@definedOr": ["$.MatrixStack.spec.clients.cinny.image", "ajbura/cinny:v4.2.3"]
+                  replicas:
+                    "@definedOr": ["$.MatrixStack.spec.clients.cinny.replicas", 1]
+                  resources: "$.MatrixStack.spec.clients.cinny.resources"
                   host:
                     "@definedOr":
                       - "$.MatrixStack.spec.clients.cinny.host"

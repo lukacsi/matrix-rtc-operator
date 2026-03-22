@@ -263,3 +263,166 @@ spec:
         apiGroup: gateway.networking.k8s.io
         kind: "HTTPRoute"
         type: Updater
+
+    # --- ELEMENT WEB CONFIG (config.json via @concat) ---
+    # 2-source join: ServerView (serverName) + NetworkingView (host, clients).
+    # Conditional on clients.element.enabled.
+    - name: element-config-generator
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixServerView
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@join":
+            "@and":
+              - "@eq": ["$.MatrixServerView.metadata.name", "$.MatrixNetworkingView.metadata.name"]
+              - "@eq": ["$.MatrixServerView.metadata.namespace", "$.MatrixNetworkingView.metadata.namespace"]
+        - "@select":
+            "@eq": ["$.MatrixNetworkingView.spec.clients.element.enabled", true]
+        - "@project":
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: element-config
+              namespace: "$.MatrixNetworkingView.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/stack: "$.MatrixNetworkingView.spec.stack"
+                matrixrtc.lukacsi.org/component: element
+                matrixrtc.lukacsi.org/view: "$.MatrixNetworkingView.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            data:
+              config.json:
+                "@concat":
+                  - "{\"default_server_config\":{\"m.homeserver\":{\"base_url\":\"https://"
+                  - "$.MatrixNetworkingView.spec.host"
+                  - "\",\"server_name\":\""
+                  - "$.MatrixServerView.spec.synapse.serverName"
+                  - "\"}},\"brand\":\"Element\",\"disable_custom_urls\":true,\"disable_guests\":true}"
+      target:
+        apiGroup: ""
+        kind: ConfigMap
+        type: Updater
+
+    # --- ELEMENT WEB DEPLOYMENT ---
+    # Single source: NetworkingView. @hash on spec triggers rollout when config changes.
+    - name: element-deployment
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@select":
+            "@eq": ["$.spec.clients.element.enabled", true]
+        - "@project":
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: element-web
+              namespace: "$.metadata.namespace"
+              labels:
+                app: element-web
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/component: element
+                matrixrtc.lukacsi.org/view: "$.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              replicas:
+                "@definedOr": ["$.spec.clients.element.replicas", 1]
+              selector:
+                matchLabels: { app: element-web }
+              template:
+                metadata:
+                  labels:
+                    app: element-web
+                    matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                    matrixrtc.lukacsi.org/component: element
+                    matrixrtc.lukacsi.org/view: "$.metadata.name"
+                    app.kubernetes.io/managed-by: matrix-rtc-operator
+                  annotations:
+                    matrixrtc.lukacsi.org/config-hash:
+                      "@hash": "$.spec"
+                spec:
+                  containers:
+                    - name: element
+                      image: "$.spec.clients.element.image"
+                      ports:
+                        - name: http
+                          containerPort: 80
+                      resources: "$.spec.clients.element.resources"
+                      volumeMounts:
+                        - name: config
+                          mountPath: /app/config.json
+                          subPath: config.json
+                          readOnly: true
+                  volumes:
+                    - name: config
+                      configMap:
+                        name: element-config
+      target:
+        apiGroup: apps
+        kind: Deployment
+        type: Updater
+
+    # --- ELEMENT WEB SERVICE ---
+    - name: element-service
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@select":
+            "@eq": ["$.spec.clients.element.enabled", true]
+        - "@project":
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: element-web
+              namespace: "$.metadata.namespace"
+              labels:
+                app: element-web
+                matrixrtc.lukacsi.org/component: element
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/view: "$.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              selector: { app: element-web }
+              ports:
+                - name: http
+                  port: 80
+                  targetPort: 80
+      target:
+        apiGroup: ""
+        kind: Service
+        type: Updater
+
+    # --- ELEMENT WEB HTTPRoute ---
+    - name: element-httproute
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@select":
+            "@eq": ["$.spec.clients.element.enabled", true]
+        - "@project":
+            apiVersion: gateway.networking.k8s.io/v1
+            kind: HTTPRoute
+            metadata:
+              name: element
+              namespace: "$.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/component: element-http
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/view: "$.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              parentRefs:
+                - name: "$.spec.httpGatewayRef.name"
+                  namespace: "$.spec.httpGatewayRef.namespace"
+              hostnames: ["$.spec.clients.element.host"]
+              rules:
+                - backendRefs:
+                    - name: element-web
+                      port: 80
+      target:
+        apiGroup: gateway.networking.k8s.io
+        kind: HTTPRoute
+        type: Updater
