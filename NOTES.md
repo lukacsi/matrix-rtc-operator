@@ -1,5 +1,31 @@
 # Notes — matrix-rtc-operator
 
+## 2026-03-22 — Phase 2: Matrix pipelines — Synapse + CNPG e2e verified
+
+**Context:** Building Matrix-side pipelines parallel to existing LiveKit pipelines. MatrixStack CRD, Synapse deployment, CNPG PostgreSQL, homeserver.yaml config generation, and top-level MatrixRTCStack decomposition.
+
+**Analysis:** Discovered dcontroller only watches `Opaque`-type Secrets — CNPG generates `kubernetes.io/basic-auth` type, making direct 3-way joins with DB credentials impossible. The original approach (embed credentials directly in homeserver.yaml via pipeline join with CNPG secret) had to be replaced with late-binding: placeholders in generated config + init container sed substitution from mounted secret volume. Also discovered single-source pipelines use `$.field` not `$.Kind.field` — qualified names only work in multi-source joins.
+
+**Decisions:**
+- **Flat MatrixRTCStack API** — `spec.livekit`, `spec.redis`, `spec.synapse`, `spec.database`, `spec.gateways.{livekit,matrix}` avoids ugly `spec.livekit.livekit` nesting. Decompose pipeline maps each section to child CRDs.
+- **Effective DB connection resolution in decomposition** — matrix-to-views resolves managed/external DB details (host, port, secret name) via @cond, so downstream pipelines are mode-agnostic
+- **Late-binding DB credentials** — `__DB_USER__`/`__DB_PASSWORD__` placeholders in generated homeserver.yaml, init container sed substitution from mounted CNPG secret. Required because dcontroller can't see non-Opaque secrets.
+- **dcontroller memory too low** — default Helm chart ships 128Mi limit. With 9 Operator CRs and unfiltered Secret sources (60+ cluster-wide, including TLS certs loaded into memory for join evaluation), the pod OOM-kills repeatedly. Causes silent data loss in DBSP incremental join state — pipelines produce empty results after restart because the join cache is inconsistent. **Fix: 512Mi minimum**, patched on cluster, needs to be persisted in homelab ArgoCD dcontroller app values and filed upstream as a Helm chart default issue.
+- **3-way join with CNPG secret works** — DB credentials embedded directly in homeserver.yaml via pipeline join with CNPG `kubernetes.io/basic-auth` Secret. No late-binding, no init containers, no sed. The clean approach.
+
+**Done:**
+- 4 new CRDs: MatrixRTCStack (mxrtc), MatrixStack (mxs), MatrixServerView (mxsv), MatrixNetworkingView (mxnv)
+- 5 new operator pipelines: stack-decompose, stack-status, matrix-to-views, matrix-views-to-k8s, matrix-status-writers
+- CNPG Cluster pipeline with @select conditional (managed mode only)
+- homeserver.yaml generation via @concat (server_name, public_baseurl, database, listeners)
+- Synapse Deployment with init container late-binding for DB credentials
+- Service + HTTPRoute (Gateway API) for Synapse
+- Status aggregation: MatrixStack `Ready: true, Running`
+- Full-stack MatrixRTCStack → LiveKitStack + MatrixStack decomposition working
+- Example CR: hack/matrix/matrix-stack.yaml
+- Synapse API verified via Playwright (versions v1.1-v1.11, federation, server v1.121.1)
+- **Remaining:** commit all changes, LiveKit Deployment issue in full-stack mode (investigate), Phase 3 clients
+
 ## 2026-03-21 — Patcher race condition workaround + e2e verified
 
 **Context:** Status aggregation broken — multiple Patchers writing to the same object's status overwrite each other's fields.

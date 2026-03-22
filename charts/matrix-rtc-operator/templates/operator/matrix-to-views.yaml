@@ -1,0 +1,154 @@
+apiVersion: dcontroller.io/v1alpha1
+kind: Operator
+metadata:
+  name: matrixrtc-matrix-to-views
+  labels:
+    matrixrtc.lukacsi.org/component: operator
+    matrixrtc.lukacsi.org/role: matrix-views
+spec:
+  controllers:
+    - name: matrix-to-server-view
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixStack
+          predicate: GenerationChanged
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+      pipeline:
+        - "@join":
+            "@eq":
+              - "@definedOr": ["$.MatrixStack.spec.infraRef", "default-infra"]
+              - "$.RTCInfrastructure.metadata.name"
+        - "@project":
+            apiVersion: "lukacsi.org/v1alpha1"
+            kind: "MatrixServerView"
+            metadata:
+              name: "$.MatrixStack.metadata.name"
+              namespace: "$.MatrixStack.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/stack: "$.MatrixStack.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              stack: "$.MatrixStack.metadata.name"
+              synapse: "$.MatrixStack.spec.synapse"
+              database:
+                mode:
+                  "@definedOr": ["$.MatrixStack.spec.database.mode", "managed"]
+                # Effective connection details — resolved here so views-to-k8s is mode-agnostic
+                effectiveHost:
+                  "@cond":
+                    - "@eq":
+                        - "@definedOr": ["$.MatrixStack.spec.database.mode", "managed"]
+                        - "managed"
+                    - "@concat":
+                        - "$.MatrixStack.metadata.name"
+                        - "-db-rw"
+                    - "$.MatrixStack.spec.database.host"
+                effectivePort:
+                  "@cond":
+                    - "@eq":
+                        - "@definedOr": ["$.MatrixStack.spec.database.mode", "managed"]
+                        - "managed"
+                    - 5432
+                    - "@definedOr": ["$.MatrixStack.spec.database.port", 5432]
+                effectiveName:
+                  "@cond":
+                    - "@eq":
+                        - "@definedOr": ["$.MatrixStack.spec.database.mode", "managed"]
+                        - "managed"
+                    - "synapse"
+                    - "@definedOr": ["$.MatrixStack.spec.database.name", "synapse"]
+                effectiveSecretName:
+                  "@cond":
+                    - "@eq":
+                        - "@definedOr": ["$.MatrixStack.spec.database.mode", "managed"]
+                        - "managed"
+                    - "@concat":
+                        - "$.MatrixStack.metadata.name"
+                        - "-db-app"
+                    - "$.MatrixStack.spec.database.keys.existingSecret"
+                effectiveUsernameKey:
+                  "@cond":
+                    - "@eq":
+                        - "@definedOr": ["$.MatrixStack.spec.database.mode", "managed"]
+                        - "managed"
+                    - "username"
+                    - "@definedOr": ["$.MatrixStack.spec.database.keys.usernameKey", "username"]
+                effectivePasswordKey:
+                  "@cond":
+                    - "@eq":
+                        - "@definedOr": ["$.MatrixStack.spec.database.mode", "managed"]
+                        - "managed"
+                    - "password"
+                    - "@definedOr": ["$.MatrixStack.spec.database.keys.passwordKey", "password"]
+                # Raw values for CNPG cluster creation
+                instances: "$.MatrixStack.spec.database.instances"
+                storage: "$.MatrixStack.spec.database.storage"
+                image: "$.MatrixStack.spec.database.image"
+              clients: "$.MatrixStack.spec.clients"
+      target:
+        apiGroup: "lukacsi.org"
+        kind: "MatrixServerView"
+        type: Updater
+
+    - name: matrix-to-networking-view
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixStack
+          predicate: GenerationChanged
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+      pipeline:
+        - "@join":
+            "@eq":
+              - "@definedOr": ["$.MatrixStack.spec.infraRef", "default-infra"]
+              - "$.RTCInfrastructure.metadata.name"
+        - "@project":
+            apiVersion: "lukacsi.org/v1alpha1"
+            kind: "MatrixNetworkingView"
+            metadata:
+              name: "$.MatrixStack.metadata.name"
+              namespace: "$.MatrixStack.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/stack: "$.MatrixStack.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              stack: "$.MatrixStack.metadata.name"
+              host:
+                "@definedOr":
+                  - "$.MatrixStack.spec.gateways.host"
+                  - "@concat":
+                      - "matrix."
+                      - "$.RTCInfrastructure.spec.domain"
+              httpGatewayRef:
+                name:
+                  "@definedOr":
+                    - "$.MatrixStack.spec.gateways.http.name"
+                    - "$.RTCInfrastructure.spec.httpGateway.name"
+                namespace:
+                  "@definedOr":
+                    - "$.MatrixStack.spec.gateways.http.namespace"
+                    - "$.RTCInfrastructure.spec.httpGateway.namespace"
+              clients:
+                element:
+                  enabled:
+                    "@definedOr": ["$.MatrixStack.spec.clients.element.enabled", true]
+                  host:
+                    "@definedOr":
+                      - "$.MatrixStack.spec.clients.element.host"
+                      - "@concat":
+                          - "element."
+                          - "$.RTCInfrastructure.spec.domain"
+                cinny:
+                  enabled:
+                    "@definedOr": ["$.MatrixStack.spec.clients.cinny.enabled", false]
+                  host:
+                    "@definedOr":
+                      - "$.MatrixStack.spec.clients.cinny.host"
+                      - "@concat":
+                          - "chat."
+                          - "$.RTCInfrastructure.spec.domain"
+      target:
+        apiGroup: "lukacsi.org"
+        kind: "MatrixNetworkingView"
+        type: Updater

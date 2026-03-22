@@ -1,0 +1,178 @@
+{{- if .Values.crds.create }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: matrixstacks.lukacsi.org
+  labels:
+    app.kubernetes.io/managed-by: matrix-rtc-operator
+  annotations:
+    "helm.sh/resource-policy": keep
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  group: lukacsi.org
+  scope: Namespaced
+  names:
+    kind: MatrixStack
+    plural: matrixstacks
+    singular: matrixstack
+    shortNames: ["mxs"]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Ready
+          type: string
+          jsonPath: .status.ready
+        - name: Status
+          type: string
+          jsonPath: .status.message
+        - name: Server
+          type: string
+          jsonPath: .spec.synapse.serverName
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: ["spec"]
+          properties:
+            spec:
+              type: object
+              required: ["synapse", "database"]
+              properties:
+                # Optional — auto-discovers single RTCInfrastructure if omitted
+                infraRef: { type: string }
+
+                # --- Synapse homeserver ---
+                synapse:
+                  type: object
+                  required: ["image", "serverName", "signingKey"]
+                  properties:
+                    image:
+                      type: string
+                      description: "Synapse container image (e.g., matrixdotorg/synapse:v1.121.1)"
+                    serverName:
+                      type: string
+                      description: "Matrix server name — used in user IDs (@user:serverName)"
+                    replicas: { type: integer, default: 1 }
+                    resources:
+                      type: object
+                      properties:
+                        requests: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                        limits: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                    signingKey:
+                      type: object
+                      required: ["existingSecret"]
+                      properties:
+                        existingSecret: { type: string, description: "Secret containing the Synapse signing key" }
+                        signingKeyKey: { type: string, default: "signing.key" }
+                    # Additional homeserver.yaml overrides (merged into generated config)
+                    config:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                      description: "Extra homeserver.yaml values merged into generated config"
+
+                # --- Database ---
+                database:
+                  type: object
+                  properties:
+                    mode:
+                      type: string
+                      enum: ["managed", "external"]
+                      default: "managed"
+                      description: "managed = CNPG PostgreSQL, external = user-provided"
+                    # Managed (CNPG) options
+                    instances: { type: integer, default: 1 }
+                    storage:
+                      type: object
+                      properties:
+                        size: { type: string, default: "10Gi" }
+                        storageClass: { type: string }
+                    image:
+                      type: string
+                      description: "PostgreSQL image for CNPG (e.g., ghcr.io/cloudnative-pg/postgresql:16)"
+                    # External options
+                    host: { type: string, description: "Database host (external mode)" }
+                    port: { type: integer, default: 5432 }
+                    name: { type: string, default: "synapse", description: "Database name" }
+                    # Credentials — for external mode, user provides secret
+                    # For managed mode, CNPG generates <cluster>-app secret automatically
+                    keys:
+                      type: object
+                      properties:
+                        existingSecret: { type: string, description: "Secret with database credentials" }
+                        usernameKey: { type: string, default: "username" }
+                        passwordKey: { type: string, default: "password" }
+
+                # --- Clients ---
+                clients:
+                  type: object
+                  properties:
+                    element:
+                      type: object
+                      properties:
+                        enabled: { type: boolean, default: true }
+                        image: { type: string, default: "vectorim/element-web:v1.11.86" }
+                        host: { type: string, description: "Hostname for Element Web (e.g., element.lukacsi.org)" }
+                        replicas: { type: integer, default: 1 }
+                        resources:
+                          type: object
+                          properties:
+                            requests: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                            limits: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                    cinny:
+                      type: object
+                      properties:
+                        enabled: { type: boolean, default: false }
+                        image: { type: string, default: "ajbura/cinny:v4.2.3" }
+                        host: { type: string, description: "Hostname for Cinny (e.g., chat.lukacsi.org)" }
+                        replicas: { type: integer, default: 1 }
+                        resources:
+                          type: object
+                          properties:
+                            requests: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                            limits: { type: object, x-kubernetes-preserve-unknown-fields: true }
+
+                # --- Networking ---
+                gateways:
+                  type: object
+                  properties:
+                    host:
+                      type: string
+                      description: "Hostname for Matrix homeserver (e.g., matrix.lukacsi.org). Falls back to infra domain."
+                    http:
+                      type: object
+                      description: "Override HTTP gateway ref from infra"
+                      properties:
+                        name: { type: string }
+                        namespace: { type: string }
+
+            status:
+              type: object
+              properties:
+                ready: { type: boolean }
+                message: { type: string }
+                host: { type: string }
+                conditions:
+                  type: array
+                  items: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                components:
+                  type: object
+                  properties:
+                    synapse:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    database:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    element:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    cinny:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+{{- end }}

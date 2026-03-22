@@ -1,0 +1,70 @@
+apiVersion: dcontroller.io/v1alpha1
+kind: Operator
+metadata:
+  name: matrixrtc-stack-decompose
+  labels:
+    matrixrtc.lukacsi.org/component: operator
+    matrixrtc.lukacsi.org/role: stack-decompose
+spec:
+  controllers:
+    # Level 0: MatrixRTCStack → LiveKitStack
+    # Maps flat top-level fields to LiveKitStack spec:
+    #   spec.livekit → LiveKitStack.spec.livekit
+    #   spec.redis → LiveKitStack.spec.redis
+    #   spec.gateways.livekit → LiveKitStack.spec.gateways
+    - name: stack-to-livekit
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixRTCStack
+          predicate: GenerationChanged
+      pipeline:
+        - "@project":
+            apiVersion: "lukacsi.org/v1alpha1"
+            kind: "LiveKitStack"
+            metadata:
+              name: "$.metadata.name"
+              namespace: "$.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/stack: "$.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              infraRef: "$.spec.infraRef"
+              livekit: "$.spec.livekit"
+              redis: "$.spec.redis"
+              gateways: "$.spec.gateways.livekit"
+      target:
+        apiGroup: "lukacsi.org"
+        kind: "LiveKitStack"
+        type: Updater
+
+    # Level 0: MatrixRTCStack → MatrixStack
+    # Maps flat top-level fields to MatrixStack spec:
+    #   spec.synapse → MatrixStack.spec.synapse
+    #   spec.database → MatrixStack.spec.database
+    #   spec.clients → MatrixStack.spec.clients
+    #   spec.gateways.matrix → MatrixStack.spec.gateways
+    - name: stack-to-matrix
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixRTCStack
+          predicate: GenerationChanged
+      pipeline:
+        - "@project":
+            apiVersion: "lukacsi.org/v1alpha1"
+            kind: "MatrixStack"
+            metadata:
+              name: "$.metadata.name"
+              namespace: "$.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/stack: "$.metadata.name"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              infraRef: "$.spec.infraRef"
+              synapse: "$.spec.synapse"
+              database: "$.spec.database"
+              clients: "$.spec.clients"
+              gateways: "$.spec.gateways.matrix"
+      target:
+        apiGroup: "lukacsi.org"
+        kind: "MatrixStack"
+        type: Updater

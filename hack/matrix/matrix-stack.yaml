@@ -1,0 +1,46 @@
+# MatrixStack — minimal example for testing Phase 2 pipelines
+# Requires: RTCInfrastructure "default-infra", CNPG operator, signing key secret
+apiVersion: lukacsi.org/v1alpha1
+kind: MatrixStack
+metadata:
+  name: my-matrix
+  namespace: matrix
+spec:
+  # Reference to cluster-scoped RTCInfrastructure (optional — auto-discovers)
+  # infraRef: "default-infra"
+
+  synapse:
+    image: "matrixdotorg/synapse:v1.121.1"
+    serverName: "lukacsi.org"
+    signingKey:
+      existingSecret: "synapse-signing-key"
+      signingKeyKey: "signing.key"
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+
+  database:
+    mode: "managed"
+    instances: 1
+    storage:
+      size: "5Gi"
+
+  gateways:
+    host: "matrix.lukacsi.org"
+
+---
+# Synapse signing key — generated once, never rotated
+# In production: generate with `python -m synapse.app.homeserver --generate-keys`
+# and encrypt with SOPS/sealed-secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: synapse-signing-key
+  namespace: matrix
+type: Opaque
+stringData:
+  signing.key: "ed25519 a_test NO2i5C6MzeLA0C487dfKUT7FBk7suaSlbCZm+qnU3VE"

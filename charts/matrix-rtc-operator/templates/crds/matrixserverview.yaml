@@ -1,0 +1,104 @@
+{{- if .Values.crds.create }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: matrixserverviews.lukacsi.org
+  labels:
+    app.kubernetes.io/managed-by: matrix-rtc-operator
+  annotations:
+    "helm.sh/resource-policy": keep
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  group: lukacsi.org
+  scope: Namespaced
+  names:
+    kind: MatrixServerView
+    plural: matrixserverviews
+    singular: matrixserverview
+    shortNames: ["mxsv"]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Image
+          type: string
+          jsonPath: .spec.synapse.image
+        - name: Server
+          type: string
+          jsonPath: .spec.synapse.serverName
+        - name: DB
+          type: string
+          jsonPath: .spec.database.mode
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                stack: { type: string }
+                synapse:
+                  type: object
+                  properties:
+                    image: { type: string }
+                    serverName: { type: string }
+                    replicas: { type: integer }
+                    resources:
+                      type: object
+                      properties:
+                        requests: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                        limits: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                    signingKey:
+                      type: object
+                      properties:
+                        existingSecret: { type: string }
+                        signingKeyKey: { type: string }
+                    config:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                database:
+                  type: object
+                  properties:
+                    mode: { type: string }
+                    # Effective connection (resolved in matrix-to-views)
+                    effectiveHost: { type: string }
+                    effectivePort: { type: integer }
+                    effectiveName: { type: string }
+                    effectiveSecretName: { type: string }
+                    effectiveUsernameKey: { type: string }
+                    effectivePasswordKey: { type: string }
+                    # Raw values for CNPG cluster creation
+                    instances: { type: integer }
+                    storage:
+                      type: object
+                      properties:
+                        size: { type: string }
+                        storageClass: { type: string }
+                    image: { type: string }
+                clients:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+            status:
+              type: object
+              properties:
+                replicas: { type: integer }
+                readyReplicas: { type: integer }
+                updatedReplicas: { type: integer }
+                availableReplicas: { type: integer }
+                serviceName: { type: string }
+                database:
+                  type: object
+                  properties:
+                    ready: { type: boolean }
+                    instances: { type: integer }
+                    readyInstances: { type: integer }
+                conditions:
+                  type: array
+                  items: { type: object, x-kubernetes-preserve-unknown-fields: true }
+{{- end }}

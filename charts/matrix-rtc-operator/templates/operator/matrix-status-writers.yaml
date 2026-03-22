@@ -1,0 +1,123 @@
+apiVersion: dcontroller.io/v1alpha1
+kind: Operator
+metadata:
+  name: matrixrtc-matrix-status-writer
+  labels:
+    matrixrtc.lukacsi.org/component: operator
+    matrixrtc.lukacsi.org/role: matrix-status
+spec:
+  controllers:
+    # Synapse deployment status → MatrixServerView
+    - name: synapse-status-to-server-view
+      sources:
+        - apiGroup: apps
+          kind: Deployment
+          labelSelector:
+            matchLabels:
+              "matrixrtc.lukacsi.org/component": "synapse"
+      pipeline:
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: MatrixServerView
+            metadata:
+              name: "$.metadata.labels['matrixrtc.lukacsi.org/view']"
+              namespace: "$.metadata.namespace"
+            status:
+              replicas: "$.status.replicas"
+              readyReplicas: "$.status.readyReplicas"
+              updatedReplicas: "$.status.updatedReplicas"
+              availableReplicas: "$.status.availableReplicas"
+              serviceName: "synapse"
+              conditions: "$.status.conditions"
+      target:
+        apiGroup: lukacsi.org
+        kind: MatrixServerView
+        type: Patcher
+
+    # HTTPRoute ready → MatrixNetworkingView
+    - name: httproute-status-to-networking-view
+      sources:
+        - apiGroup: gateway.networking.k8s.io
+          kind: HTTPRoute
+          labelSelector:
+            matchLabels:
+              "matrixrtc.lukacsi.org/component": "synapse-http"
+      pipeline:
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: MatrixNetworkingView
+            metadata:
+              name: "$.metadata.labels['matrixrtc.lukacsi.org/view']"
+              namespace: "$.metadata.namespace"
+            status:
+              httpRouteReady:
+                "@gt":
+                  - "@len":
+                      "@filter":
+                        - "@and":
+                            - "@eq": ["$$.type", "Accepted"]
+                            - "@eq": ["$$.status", "True"]
+                        - "@definedOr": ["$.status.parents[0].conditions", []]
+                  - 0
+      target:
+        apiGroup: lukacsi.org
+        kind: MatrixNetworkingView
+        type: Patcher
+
+    # --- Aggregate → MatrixStack (single writer, no Patcher race) ---
+    # DB readiness is implicit: if CNPG isn't ready, config secret doesn't exist,
+    # Synapse can't start, so Deployment readyReplicas=0.
+    - name: stack-status-aggregate
+      sources:
+        - apiGroup: apps
+          kind: Deployment
+          labelSelector:
+            matchLabels:
+              "matrixrtc.lukacsi.org/component": "synapse"
+        - apiGroup: gateway.networking.k8s.io
+          kind: HTTPRoute
+          labelSelector:
+            matchLabels:
+              "matrixrtc.lukacsi.org/component": "synapse-http"
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@join":
+            "@and":
+              - "@eq": ["$.Deployment.metadata.labels['matrixrtc.lukacsi.org/stack']", "$.HTTPRoute.metadata.labels['matrixrtc.lukacsi.org/stack']"]
+              - "@eq": ["$.Deployment.metadata.labels['matrixrtc.lukacsi.org/stack']", "$.MatrixNetworkingView.spec.stack"]
+              - "@eq": ["$.Deployment.metadata.namespace", "$.HTTPRoute.metadata.namespace"]
+              - "@eq": ["$.Deployment.metadata.namespace", "$.MatrixNetworkingView.metadata.namespace"]
+        - "@project":
+            apiVersion: lukacsi.org/v1alpha1
+            kind: MatrixStack
+            metadata:
+              name: "$.Deployment.metadata.labels['matrixrtc.lukacsi.org/stack']"
+              namespace: "$.Deployment.metadata.namespace"
+            status:
+              host: "$.MatrixNetworkingView.spec.host"
+              ready:
+                "@and":
+                  - "@gt": [{ "@definedOr": ["$.Deployment.status.readyReplicas", 0] }, 0]
+                  - "@gt":
+                      - "@len":
+                          "@filter":
+                            - "@and":
+                                - "@eq": ["$$.type", "Accepted"]
+                                - "@eq": ["$$.status", "True"]
+                            - "@definedOr": ["$.HTTPRoute.status.parents[0].conditions", []]
+                      - 0
+              message:
+                "@cond":
+                  - "@not":
+                      "@gt": [{ "@definedOr": ["$.Deployment.status.readyReplicas", 0] }, 0]
+                  - "Synapse not ready"
+                  - "Running"
+              components:
+                synapse:
+                  replicas: "$.Deployment.status.replicas"
+                  readyReplicas: "$.Deployment.status.readyReplicas"
+      target:
+        apiGroup: lukacsi.org
+        kind: MatrixStack
+        type: Patcher

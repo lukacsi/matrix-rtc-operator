@@ -1,0 +1,108 @@
+{{- if .Values.crds.create }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: matrixrtcstacks.lukacsi.org
+  labels:
+    app.kubernetes.io/managed-by: matrix-rtc-operator
+  annotations:
+    "helm.sh/resource-policy": keep
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  group: lukacsi.org
+  scope: Namespaced
+  names:
+    kind: MatrixRTCStack
+    plural: matrixrtcstacks
+    singular: matrixrtcstack
+    shortNames: ["mxrtc"]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Ready
+          type: string
+          jsonPath: .status.ready
+        - name: Status
+          type: string
+          jsonPath: .status.message
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: ["spec"]
+          properties:
+            spec:
+              type: object
+              required: ["livekit", "redis", "synapse", "database"]
+              properties:
+                # Optional — auto-discovers single RTCInfrastructure if omitted
+                infraRef: { type: string }
+
+                # --- LiveKit (passes through to LiveKitStack.spec.livekit) ---
+                livekit:
+                  type: object
+                  description: "LiveKit server configuration"
+                  x-kubernetes-preserve-unknown-fields: true
+
+                # --- Redis (passes through to LiveKitStack.spec.redis) ---
+                redis:
+                  type: object
+                  description: "Redis configuration for LiveKit"
+                  x-kubernetes-preserve-unknown-fields: true
+
+                # --- Synapse (passes through to MatrixStack.spec.synapse) ---
+                synapse:
+                  type: object
+                  description: "Matrix Synapse homeserver configuration"
+                  x-kubernetes-preserve-unknown-fields: true
+
+                # --- Database (passes through to MatrixStack.spec.database) ---
+                database:
+                  type: object
+                  description: "PostgreSQL database configuration (CNPG managed or external)"
+                  x-kubernetes-preserve-unknown-fields: true
+
+                # --- Clients (passes through to MatrixStack.spec.clients) ---
+                clients:
+                  type: object
+                  description: "Matrix client applications (Element Web, Cinny)"
+                  x-kubernetes-preserve-unknown-fields: true
+
+                # --- Networking ---
+                gateways:
+                  type: object
+                  description: "Per-component gateway overrides"
+                  properties:
+                    livekit:
+                      type: object
+                      description: "LiveKit gateway config — passes through to LiveKitStack.spec.gateways"
+                      x-kubernetes-preserve-unknown-fields: true
+                    matrix:
+                      type: object
+                      description: "Matrix gateway config — passes through to MatrixStack.spec.gateways"
+                      x-kubernetes-preserve-unknown-fields: true
+
+            status:
+              type: object
+              properties:
+                ready: { type: boolean }
+                message: { type: string }
+                conditions:
+                  type: array
+                  items: { type: object, x-kubernetes-preserve-unknown-fields: true }
+                components:
+                  type: object
+                  properties:
+                    livekit:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    matrix:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+{{- end }}

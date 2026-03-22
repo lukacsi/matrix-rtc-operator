@@ -1,0 +1,63 @@
+apiVersion: dcontroller.io/v1alpha1
+kind: Operator
+metadata:
+  name: matrixrtc-stack-status
+  labels:
+    matrixrtc.lukacsi.org/component: operator
+    matrixrtc.lukacsi.org/role: stack-status
+spec:
+  controllers:
+    # Level 0: LiveKitStack.status + MatrixStack.status → MatrixRTCStack.status
+    # Single writer to MatrixRTCStack status — no Patcher race concern
+    - name: stack-status-aggregator
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitStack
+        - apiGroup: lukacsi.org
+          kind: MatrixStack
+      pipeline:
+        - "@join":
+            "@eq":
+              - "$.LiveKitStack.metadata.name"
+              - "$.MatrixStack.metadata.name"
+        - "@project":
+            apiVersion: "lukacsi.org/v1alpha1"
+            kind: "MatrixRTCStack"
+            metadata:
+              name: "$.LiveKitStack.metadata.name"
+              namespace: "$.LiveKitStack.metadata.namespace"
+            status:
+              ready:
+                "@and":
+                  - "@definedOr": ["$.LiveKitStack.status.ready", false]
+                  - "@definedOr": ["$.MatrixStack.status.ready", false]
+              message:
+                "@cond":
+                  - "@and":
+                      - "@definedOr": ["$.LiveKitStack.status.ready", false]
+                      - "@definedOr": ["$.MatrixStack.status.ready", false]
+                  - "Running"
+                  - "@cond":
+                      - "@not":
+                          "@definedOr": ["$.LiveKitStack.status.ready", false]
+                      - "@concat":
+                          - "LiveKit: "
+                          - "@definedOr": ["$.LiveKitStack.status.message", "not ready"]
+                      - "@concat":
+                          - "Matrix: "
+                          - "@definedOr": ["$.MatrixStack.status.message", "not ready"]
+              components:
+                livekit:
+                  ready:
+                    "@definedOr": ["$.LiveKitStack.status.ready", false]
+                  message:
+                    "@definedOr": ["$.LiveKitStack.status.message", "pending"]
+                matrix:
+                  ready:
+                    "@definedOr": ["$.MatrixStack.status.ready", false]
+                  message:
+                    "@definedOr": ["$.MatrixStack.status.message", "pending"]
+      target:
+        apiGroup: "lukacsi.org"
+        kind: "MatrixRTCStack"
+        type: Patcher
