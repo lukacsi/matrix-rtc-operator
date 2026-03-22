@@ -57,6 +57,20 @@ spec:
                       args: ["--config", "/etc/livekit/livekit.yaml"]
                       resources: "$.LiveKitServerView.spec.livekit.resources"
                       ports: [{ name: http, containerPort: 7880 }]
+                      livenessProbe:
+                        httpGet:
+                          path: /
+                          port: 7880
+                        initialDelaySeconds: 10
+                        periodSeconds: 30
+                        timeoutSeconds: 5
+                      readinessProbe:
+                        httpGet:
+                          path: /
+                          port: 7880
+                        initialDelaySeconds: 5
+                        periodSeconds: 10
+                        timeoutSeconds: 5
                       volumeMounts:
                         - name: cfg
                           mountPath: /etc/livekit
