@@ -158,6 +158,18 @@ spec:
                       - "@concat":
                           - "chat."
                           - "$.RTCInfrastructure.spec.domain"
+              # Bridge hosts (derived from infra domain, overridable)
+              bridge:
+                jwtServiceHost:
+                  "@definedOr":
+                    - "$.MatrixStack.spec.bridge.jwtServiceHost"
+                    - "@concat":
+                        - "lk-jwt."
+                        - "$.RTCInfrastructure.spec.domain"
+                wellknownHost:
+                  "@definedOr":
+                    - "$.MatrixStack.spec.bridge.wellknownHost"
+                    - "$.RTCInfrastructure.spec.domain"
       target:
         apiGroup: "lukacsi.org"
         kind: "MatrixNetworkingView"

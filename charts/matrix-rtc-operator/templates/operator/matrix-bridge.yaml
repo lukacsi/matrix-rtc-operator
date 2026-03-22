@@ -1,0 +1,311 @@
+apiVersion: dcontroller.io/v1alpha1
+kind: Operator
+metadata:
+  name: matrixrtc-matrix-bridge
+  labels:
+    matrixrtc.lukacsi.org/component: operator
+    matrixrtc.lukacsi.org/role: matrix-bridge
+spec:
+  controllers:
+    # =====================================================================
+    # lk-jwt-service — bridges Matrix auth to LiveKit JWT tokens
+    # =====================================================================
+
+    # --- JWT SERVICE DEPLOYMENT ---
+    # 3-way join: LiveKitServerView (secret refs) + LiveKitNetworkingView (wss URL)
+    #           + MatrixServerView (serverName for full-access homeservers)
+    - name: jwt-service-deployment
+      sources:
+        - apiGroup: lukacsi.org
+          kind: LiveKitServerView
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+        - apiGroup: lukacsi.org
+          kind: MatrixServerView
+      pipeline:
+        - "@join":
+            "@and":
+              - "@eq": ["$.LiveKitServerView.metadata.name", "$.LiveKitNetworkingView.metadata.name"]
+              - "@eq": ["$.LiveKitServerView.metadata.name", "$.MatrixServerView.metadata.name"]
+              - "@eq": ["$.LiveKitServerView.metadata.namespace", "$.LiveKitNetworkingView.metadata.namespace"]
+              - "@eq": ["$.LiveKitServerView.metadata.namespace", "$.MatrixServerView.metadata.namespace"]
+        - "@project":
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: lk-jwt-service
+              namespace: "$.LiveKitServerView.metadata.namespace"
+              labels:
+                app: lk-jwt-service
+                matrixrtc.lukacsi.org/stack: "$.LiveKitServerView.spec.stack"
+                matrixrtc.lukacsi.org/component: bridge
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              replicas: 1
+              selector:
+                matchLabels: { app: lk-jwt-service }
+              template:
+                metadata:
+                  labels:
+                    app: lk-jwt-service
+                    matrixrtc.lukacsi.org/stack: "$.LiveKitServerView.spec.stack"
+                    matrixrtc.lukacsi.org/component: bridge
+                    app.kubernetes.io/managed-by: matrix-rtc-operator
+                spec:
+                  containers:
+                    - name: lk-jwt-service
+                      image: "ghcr.io/element-hq/lk-jwt-service:0.3.0"
+                      ports:
+                        - name: http
+                          containerPort: 8080
+                      env:
+                        - name: LIVEKIT_URL
+                          value:
+                            "@concat":
+                              - "wss://"
+                              - "$.LiveKitNetworkingView.spec.host"
+                        - name: LIVEKIT_KEY
+                          valueFrom:
+                            secretKeyRef:
+                              name: "$.LiveKitServerView.spec.livekit.keys.existingSecret"
+                              key: "$.LiveKitServerView.spec.livekit.keys.apiKeyKey"
+                        - name: LIVEKIT_SECRET
+                          valueFrom:
+                            secretKeyRef:
+                              name: "$.LiveKitServerView.spec.livekit.keys.existingSecret"
+                              key: "$.LiveKitServerView.spec.livekit.keys.apiSecretKey"
+                        - name: LIVEKIT_FULL_ACCESS_HOMESERVERS
+                          value: "$.MatrixServerView.spec.synapse.serverName"
+                        - name: LK_JWT_PORT
+                          value: "8080"
+      target:
+        apiGroup: apps
+        kind: Deployment
+        type: Updater
+
+    # --- JWT SERVICE ---
+    - name: jwt-service-service
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+          predicate: GenerationChanged
+      pipeline:
+        - "@project":
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: lk-jwt-service
+              namespace: "$.metadata.namespace"
+              labels:
+                app: lk-jwt-service
+                matrixrtc.lukacsi.org/component: bridge
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              selector: { app: lk-jwt-service }
+              ports:
+                - name: http
+                  port: 8080
+                  targetPort: 8080
+      target:
+        apiGroup: ""
+        kind: Service
+        type: Updater
+
+    # --- JWT SERVICE HTTPRoute ---
+    - name: jwt-service-httproute
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+          predicate: GenerationChanged
+      pipeline:
+        - "@project":
+            apiVersion: gateway.networking.k8s.io/v1
+            kind: HTTPRoute
+            metadata:
+              name: lk-jwt
+              namespace: "$.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/component: bridge-http
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              parentRefs:
+                - name: "$.spec.httpGatewayRef.name"
+                  namespace: "$.spec.httpGatewayRef.namespace"
+              hostnames: ["$.spec.bridge.jwtServiceHost"]
+              rules:
+                - backendRefs:
+                    - name: lk-jwt-service
+                      port: 8080
+      target:
+        apiGroup: gateway.networking.k8s.io
+        kind: HTTPRoute
+        type: Updater
+
+    # =====================================================================
+    # .well-known — Matrix server/client discovery + MatrixRTC LiveKit foci
+    # =====================================================================
+
+    # --- WELLKNOWN CONFIG ---
+    # Single source: MatrixNetworkingView has all needed data (host, bridge hosts)
+    - name: wellknown-config
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@project":
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: matrix-wellknown
+              namespace: "$.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/component: wellknown
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            data:
+              client:
+                "@concat":
+                  - "{\"m.homeserver\":{\"base_url\":\"https://"
+                  - "$.spec.host"
+                  - "\"},\"org.matrix.msc4143.rtc_foci\":[{\"type\":\"livekit\",\"livekit_service_url\":\"https://"
+                  - "$.spec.bridge.jwtServiceHost"
+                  - "\"}]}"
+              server:
+                "@concat":
+                  - "{\"m.server\":\""
+                  - "$.spec.host"
+                  - ":443\"}"
+              nginx.conf: "server {\n  listen 80;\n  location /.well-known/matrix/client {\n    default_type application/json;\n    add_header Access-Control-Allow-Origin *;\n    alias /data/client;\n  }\n  location /.well-known/matrix/server {\n    default_type application/json;\n    alias /data/server;\n  }\n  location /health {\n    return 200 'ok';\n  }\n}\n"
+      target:
+        apiGroup: ""
+        kind: ConfigMap
+        type: Updater
+
+    # --- WELLKNOWN DEPLOYMENT ---
+    - name: wellknown-deployment
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@project":
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: matrix-wellknown
+              namespace: "$.metadata.namespace"
+              labels:
+                app: matrix-wellknown
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/component: wellknown
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              replicas: 1
+              selector:
+                matchLabels: { app: matrix-wellknown }
+              template:
+                metadata:
+                  labels:
+                    app: matrix-wellknown
+                    matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                    matrixrtc.lukacsi.org/component: wellknown
+                    app.kubernetes.io/managed-by: matrix-rtc-operator
+                  annotations:
+                    matrixrtc.lukacsi.org/config-hash:
+                      "@hash": "$.spec"
+                spec:
+                  containers:
+                    - name: nginx
+                      image: "nginx:1.27-alpine"
+                      ports:
+                        - containerPort: 80
+                      volumeMounts:
+                        - name: config
+                          mountPath: /etc/nginx/conf.d/default.conf
+                          subPath: nginx.conf
+                        - name: data-client
+                          mountPath: /data/client
+                          subPath: client
+                        - name: data-server
+                          mountPath: /data/server
+                          subPath: server
+                  volumes:
+                    - name: config
+                      configMap:
+                        name: matrix-wellknown
+                    - name: data-client
+                      configMap:
+                        name: matrix-wellknown
+                    - name: data-server
+                      configMap:
+                        name: matrix-wellknown
+      target:
+        apiGroup: apps
+        kind: Deployment
+        type: Updater
+
+    # --- WELLKNOWN SERVICE ---
+    - name: wellknown-service
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+          predicate: GenerationChanged
+      pipeline:
+        - "@project":
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: matrix-wellknown
+              namespace: "$.metadata.namespace"
+              labels:
+                app: matrix-wellknown
+                matrixrtc.lukacsi.org/component: wellknown
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              selector: { app: matrix-wellknown }
+              ports:
+                - name: http
+                  port: 80
+                  targetPort: 80
+      target:
+        apiGroup: ""
+        kind: Service
+        type: Updater
+
+    # --- WELLKNOWN HTTPRoute ---
+    # Serves on the apex domain (e.g., lukacsi.org) at /.well-known/matrix/*
+    - name: wellknown-httproute
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+          predicate: GenerationChanged
+      pipeline:
+        - "@project":
+            apiVersion: gateway.networking.k8s.io/v1
+            kind: HTTPRoute
+            metadata:
+              name: matrix-wellknown
+              namespace: "$.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/component: wellknown-http
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              parentRefs:
+                - name: "$.spec.httpGatewayRef.name"
+                  namespace: "$.spec.httpGatewayRef.namespace"
+              hostnames: ["$.spec.bridge.wellknownHost"]
+              rules:
+                - matches:
+                    - path:
+                        type: PathPrefix
+                        value: /.well-known/matrix
+                  backendRefs:
+                    - name: matrix-wellknown
+                      port: 80
+      target:
+        apiGroup: gateway.networking.k8s.io
+        kind: HTTPRoute
+        type: Updater

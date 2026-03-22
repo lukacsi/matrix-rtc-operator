@@ -70,6 +70,11 @@ spec:
                             requests: { type: object, x-kubernetes-preserve-unknown-fields: true }
                             limits: { type: object, x-kubernetes-preserve-unknown-fields: true }
                         host: { type: string }
+                bridge:
+                  type: object
+                  properties:
+                    jwtServiceHost: { type: string, description: "Hostname for lk-jwt-service (e.g., lk-jwt.lukacsi.org)" }
+                    wellknownHost: { type: string, description: "Hostname for .well-known endpoint (e.g., lukacsi.org)" }
             status:
               type: object
               properties:
