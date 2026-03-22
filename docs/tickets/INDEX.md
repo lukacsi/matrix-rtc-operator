@@ -32,10 +32,10 @@
 |----|-------|--------|----------|----------|
 | MRO-010 | [Enterprise values.yaml with @param comments](MRO-010.md) | BACKLOG | P1 | — |
 | MRO-011 | [values.schema.json validation](MRO-011.md) | BACKLOG | P2 | — |
-| MRO-012 | [CRD templates (MatrixRTCStack, LiveKitStack, MatrixStack, RTCInfra)](MRO-012.md) | BACKLOG | P0 | — |
+| MRO-012 | [CRD templates (MatrixRTCStack, LiveKitStack, MatrixStack, RTCInfra)](MRO-012.md) | DONE | P0 | — |
 | MRO-013 | [RBAC templates — least privilege](MRO-013.md) | BACKLOG | P1 | — |
-| MRO-014 | [Adapt LiveKit pipelines — gateway-agnostic](MRO-014.md) | BACKLOG | P1 | — |
-| MRO-015 | [Top-level decomposition pipeline (stack-decompose)](MRO-015.md) | BACKLOG | P0 | — |
+| MRO-014 | [Adapt LiveKit pipelines — gateway-agnostic](MRO-014.md) | DONE | P1 | — |
+| MRO-015 | [Top-level decomposition pipeline (stack-decompose)](MRO-015.md) | DONE | P0 | — |
 | MRO-016 | [NOTES.txt + .helmignore + CI values](MRO-016.md) | BACKLOG | P3 | — |
 | MRO-017 | [GitHub Actions CI](MRO-017.md) | BACKLOG | P2 | — |
 
@@ -43,27 +43,27 @@
 
 | ID | Title | Status | Priority | Assignee |
 |----|-------|--------|----------|----------|
-| MRO-020 | [matrix-to-views.yaml — server + networking views](MRO-020.md) | BACKLOG | P0 | — |
-| MRO-021 | [Synapse deployment pipeline](MRO-021.md) | BACKLOG | P0 | — |
-| MRO-022 | [homeserver.yaml generation via @concat](MRO-022.md) | BACKLOG | P0 | — |
-| MRO-023 | [CNPG Cluster pipeline (conditional)](MRO-023.md) | BACKLOG | P1 | — |
-| MRO-024 | [Synapse service + HTTPRoute](MRO-024.md) | BACKLOG | P1 | — |
-| MRO-025 | [Example CR — minimal MatrixStack](MRO-025.md) | BACKLOG | P2 | — |
+| MRO-020 | [matrix-to-views.yaml — server + networking views](MRO-020.md) | DONE | P0 | — |
+| MRO-021 | [Synapse deployment pipeline](MRO-021.md) | DONE | P0 | — |
+| MRO-022 | [homeserver.yaml generation via @concat](MRO-022.md) | DONE | P0 | — |
+| MRO-023 | [CNPG Cluster pipeline (conditional)](MRO-023.md) | DONE | P1 | — |
+| MRO-024 | [Synapse service + HTTPRoute](MRO-024.md) | DONE | P1 | — |
+| MRO-025 | [Example CR — minimal MatrixStack](MRO-025.md) | DONE | P2 | — |
 
 ## Phase 3: Clients — Element Web + Cinny
 
 | ID | Title | Status | Priority | Assignee |
 |----|-------|--------|----------|----------|
-| MRO-030 | [matrix-to-client-views controller (@unwind)](MRO-030.md) | BACKLOG | P1 | — |
-| MRO-031 | [Client deployment + config pipelines](MRO-031.md) | BACKLOG | P1 | — |
+| MRO-030 | [matrix-to-client-views controller (@unwind)](MRO-030.md) | DROPPED | P1 | — |
+| MRO-031 | [Client deployment + config pipelines](MRO-031.md) | DONE | P1 | — |
 | MRO-032 | [Security contexts for client pods](MRO-032.md) | BACKLOG | P2 | — |
 
 ## Phase 4: LiveKit Bridge — lk-jwt-service + .well-known
 
 | ID | Title | Status | Priority | Assignee |
 |----|-------|--------|----------|----------|
-| MRO-040 | [lk-jwt-service deployment pipeline](MRO-040.md) | BACKLOG | P1 | — |
-| MRO-041 | [.well-known via Synapse config (cross-CRD join)](MRO-041.md) | BACKLOG | P0 | — |
+| MRO-040 | [lk-jwt-service deployment pipeline](MRO-040.md) | DONE | P1 | — |
+| MRO-041 | [.well-known via nginx + cross-CRD bridge pipeline](MRO-041.md) | DONE | P0 | — |
 | MRO-042 | [End-to-end call verification](MRO-042.md) | BACKLOG | P1 | — |
 
 ## Phase 5: Status Aggregation + Enterprise Polish
