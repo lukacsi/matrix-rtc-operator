@@ -81,6 +81,10 @@ spec:
                   - "media_store_path: \"/data/media_store\"\n"
                   - "uploads_path: \"/data/uploads\"\n"
                   - "enable_registration: false\n"
+                  # registration_shared_secret: reuses DB password (CNPG-generated, 64 chars).
+                  # dcontroller can't join two Secrets of the same kind in one pipeline —
+                  # a separate registration Secret would require $.Secret disambiguation
+                  # which isn't supported. The DB password is strong and unique per deployment.
                   - "registration_shared_secret: \""
                   - "$.Secret.data['password']"
                   - "\"\n"
@@ -88,6 +92,35 @@ spec:
       target:
         apiGroup: ""
         kind: Secret
+        type: Updater
+
+    # --- SYNAPSE DATA PVC ---
+    # Persistent storage for media_store and uploads. PVC is immutable after
+    # creation — Updater creates once, subsequent reconciliations are no-ops.
+    - name: synapse-data-pvc
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixServerView
+          predicate: GenerationChanged
+      pipeline:
+        - "@project":
+            apiVersion: v1
+            kind: PersistentVolumeClaim
+            metadata:
+              name: synapse-data
+              namespace: "$.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/component: synapse
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: "10Gi"
+      target:
+        apiGroup: ""
+        kind: PersistentVolumeClaim
         type: Updater
 
     # --- SYNAPSE DEPLOYMENT ---
@@ -142,6 +175,20 @@ spec:
                         - name: SYNAPSE_CONFIG_PATH
                           value: "/config/homeserver.yaml"
                       resources: "$.MatrixServerView.spec.synapse.resources"
+                      livenessProbe:
+                        httpGet:
+                          path: /health
+                          port: 8008
+                        initialDelaySeconds: 30
+                        periodSeconds: 30
+                        timeoutSeconds: 10
+                      readinessProbe:
+                        httpGet:
+                          path: /health
+                          port: 8008
+                        initialDelaySeconds: 5
+                        periodSeconds: 10
+                        timeoutSeconds: 5
                       volumeMounts:
                         - name: config
                           mountPath: /config
@@ -159,7 +206,8 @@ spec:
                       secret:
                         secretName: "$.MatrixServerView.spec.synapse.signingKey.existingSecret"
                     - name: data
-                      emptyDir: {}
+                      persistentVolumeClaim:
+                        claimName: synapse-data
       target:
         apiGroup: "apps"
         kind: "Deployment"
