@@ -75,6 +75,31 @@ spec:
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                       description: "Extra homeserver.yaml values merged into generated config"
+                    # OIDC/SSO authentication
+                    oidc:
+                      type: object
+                      description: "OIDC authentication provider (e.g., Authentik, Keycloak)"
+                      properties:
+                        enabled: { type: boolean, default: false }
+                        idpId: { type: string, default: "authentik", description: "OIDC provider identifier" }
+                        idpName: { type: string, default: "Authentik", description: "Display name on login page" }
+                        issuer: { type: string, description: "OIDC issuer URL" }
+                        clientId: { type: string }
+                        clientSecret:
+                          type: object
+                          required: ["existingSecret"]
+                          properties:
+                            existingSecret: { type: string, description: "Secret containing OIDC client secret" }
+                            clientSecretKey: { type: string, default: "client-secret" }
+                        scopes:
+                          type: array
+                          items: { type: string }
+                          default: ["openid", "profile", "email"]
+                        userMapping:
+                          type: object
+                          properties:
+                            localpartTemplate: { type: string }
+                            displayNameTemplate: { type: string }
 
                 # --- Database ---
                 database:

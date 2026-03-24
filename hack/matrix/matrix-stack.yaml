@@ -22,6 +22,16 @@ spec:
       limits:
         cpu: "1"
         memory: "1Gi"
+    # OIDC — uncomment to enable SSO via Authentik
+    # oidc:
+    #   enabled: true
+    #   idpId: "authentik"
+    #   idpName: "Authentik"
+    #   issuer: "https://auth.lukacsi.org/application/o/synapse/"
+    #   clientId: "synapse"
+    #   clientSecret:
+    #     existingSecret: "synapse-oidc-secret"
+    #     clientSecretKey: "client-secret"
 
   database:
     mode: "managed"

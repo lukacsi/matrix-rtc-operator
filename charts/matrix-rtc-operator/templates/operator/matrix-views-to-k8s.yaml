@@ -89,6 +89,38 @@ spec:
                   - "$.Secret.data['password']"
                   - "\"\n"
                   - "report_stats: false\n"
+                  # OIDC — conditional block, only included when oidc.enabled=true
+                  - "@cond":
+                      - "@eq": ["$.MatrixServerView.spec.synapse.oidc.enabled", true]
+                      - "@concat":
+                          - "\noidc_providers:\n"
+                          - "  - idp_id: \""
+                          - "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.idpId", "authentik"]
+                          - "\"\n"
+                          - "    idp_name: \""
+                          - "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.idpName", "Authentik"]
+                          - "\"\n"
+                          - "    discover: true\n"
+                          - "    issuer: \""
+                          - "$.MatrixServerView.spec.synapse.oidc.issuer"
+                          - "\"\n"
+                          - "    client_id: \""
+                          - "$.MatrixServerView.spec.synapse.oidc.clientId"
+                          - "\"\n"
+                          - "    client_secret_path: \"/secrets/oidc/client-secret\"\n"
+                          - "    scopes:\n"
+                          - "      - \"openid\"\n"
+                          - "      - \"profile\"\n"
+                          - "      - \"email\"\n"
+                          - "    user_mapping_provider:\n"
+                          - "      config:\n"
+                          - "        localpart_template: \""
+                          - "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.userMapping.localpartTemplate", "{{`{{ user.preferred_username }}`}}"]
+                          - "\"\n"
+                          - "        display_name_template: \""
+                          - "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.userMapping.displayNameTemplate", "{{`{{ user.name }}`}}"]
+                          - "\"\n"
+                      - "@concat": []
       target:
         apiGroup: ""
         kind: Secret
@@ -198,6 +230,9 @@ spec:
                           readOnly: true
                         - name: data
                           mountPath: /data
+                        - name: oidc-secret
+                          mountPath: /secrets/oidc
+                          readOnly: true
                   volumes:
                     - name: config
                       secret:
@@ -208,6 +243,13 @@ spec:
                     - name: data
                       persistentVolumeClaim:
                         claimName: synapse-data
+                    - name: oidc-secret
+                      secret:
+                        secretName:
+                          "@definedOr":
+                            - "$.MatrixServerView.spec.synapse.oidc.clientSecret.existingSecret"
+                            - "synapse-oidc-unused"
+                        optional: true
       target:
         apiGroup: "apps"
         kind: "Deployment"
