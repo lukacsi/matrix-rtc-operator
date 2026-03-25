@@ -121,6 +121,14 @@ spec:
                           - "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.userMapping.displayNameTemplate", "{{`{{ user.name }}`}}"]
                           - "\"\n"
                       - "@concat": []
+                  # MatrixRTC — serve well-known with LiveKit foci for Element Call
+                  - "\nserve_client_wellknown: true\n"
+                  - "extra_well_known_client_content:\n"
+                  - "  \"org.matrix.msc4143.rtc_foci\":\n"
+                  - "    - type: \"livekit\"\n"
+                  - "      livekit_service_url: \"https://"
+                  - "$.MatrixNetworkingView.spec.bridge.jwtServiceHost"
+                  - "\"\n"
       target:
         apiGroup: ""
         kind: Secret
