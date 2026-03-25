@@ -82,6 +82,6 @@ docs/
 - **Fan-in status aggregation**: K8s resource status → View status → CRD status (uses Patcher, not Updater)
 - **@hash rollout triggers**: Secret data hash as pod annotation — forces rolling update on credential rotation
 
-## Plan
+## Status
 
-Full implementation plan at `~/.claude/plans/humble-crafting-whistle.md`
+Proof of concept. Lower-level CRDs (MatrixStack, LiveKitStack) are tested and deployed. Top-level MatrixRTCStack decomposition exists but is not end-to-end tested.

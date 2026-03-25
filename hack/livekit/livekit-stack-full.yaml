@@ -40,7 +40,7 @@ spec:
   gateways:
     # Hostname for LiveKit signaling endpoint
     # Falls back to RTCInfrastructure.spec.domain if not set
-    host: "livekit.lukacsi.org"
+    host: "livekit.example.com"
 
     # Override HTTP gateway from infra (usually not needed)
     # http:
@@ -56,7 +56,7 @@ spec:
 
       # Static TURN address — overrides both infra externalAddress and LB discovery
       # Use for per-stack TURN endpoint (e.g., geo-specific)
-      # externalAddress: "turn-eu.lukacsi.org"
+      # externalAddress: "turn-eu.example.com"
 
       # Override STUNner credentials for this stack
       # If not set, falls back to RTCInfrastructure.spec.stunner.defaultKeyRef

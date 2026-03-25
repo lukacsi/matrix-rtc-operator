@@ -13,4 +13,8 @@ charts/matrix-rtc-operator/charts/
 Thumbs.db
 
 # Claude
-.claude/sessions/
+.claude/
+NOTES.md
+
+# Internal
+docs/tickets/

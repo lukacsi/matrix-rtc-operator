@@ -23,14 +23,14 @@ metadata:
     matrixrtc.lukacsi.org/cert-namespace: "cert-manager"  # only used when certmanager=enabled
 spec:
   # Base domain — all services derive subdomains from this
-  domain: "lukacsi.org"
+  domain: "example.com"
 
   # --- HTTP Gateway ---
   # BYO only — operator creates HTTPRoutes, not the gateway itself.
   # Point this at your existing Traefik/Envoy/Cilium Gateway.
   httpGateway:
-    name: "traefik-gateway"
-    namespace: "traefik"
+    name: "my-gateway"
+    namespace: "gateway-system"
 
   # --- STUNner (TURN/STUN media gateway) ---
   stunner:
@@ -48,11 +48,11 @@ spec:
     # Cloud: leave unset, LB IP is discovered automatically
     # Homelab: set to your public IP or domain with port forwarding
     # Hybrid: set a domain that resolves differently per environment
-    externalAddress: "turn.lukacsi.org"              # OPTIONAL — omit for cloud auto-discovery
+    externalAddress: "turn.example.com"              # OPTIONAL — omit for cloud auto-discovery
 
     # STUNner TURN credentials (plaintext for now — will move to secretRef)
-    username: "user-1"
-    password: "pass-1"
+    username: "CHANGEME"
+    password: "CHANGEME"
 
     # Default credential secret — pools that don't override use these
     defaultKeyRef:
@@ -65,7 +65,7 @@ spec:
     # managed: true → operator creates ClusterIssuer + Certificate
     # managed: false → user handles TLS (existing certs, external issuer)
     # (controlled by the matrixrtc.lukacsi.org/certmanager label above)
-    email: "admin@lukacsi.org"
+    email: "admin@example.com"
     issuerRef:
       name: "letsencrypt-prod"                       # default
       kind: "ClusterIssuer"                          # default

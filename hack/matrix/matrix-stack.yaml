@@ -11,7 +11,7 @@ spec:
 
   synapse:
     image: "matrixdotorg/synapse:v1.121.1"
-    serverName: "lukacsi.org"
+    serverName: "example.com"
     signingKey:
       existingSecret: "synapse-signing-key"
       signingKeyKey: "signing.key"
@@ -27,7 +27,7 @@ spec:
     #   enabled: true
     #   idpId: "authentik"
     #   idpName: "Authentik"
-    #   issuer: "https://auth.lukacsi.org/application/o/synapse/"
+    #   issuer: "https://auth.example.com/application/o/synapse/"
     #   clientId: "synapse"
     #   clientSecret:
     #     existingSecret: "synapse-oidc-secret"
@@ -40,7 +40,7 @@ spec:
       size: "5Gi"
 
   gateways:
-    host: "matrix.lukacsi.org"
+    host: "matrix.example.com"
 
 ---
 # Synapse signing key — generated once, never rotated
@@ -53,4 +53,4 @@ metadata:
   namespace: matrix
 type: Opaque
 stringData:
-  signing.key: "ed25519 a_test NO2i5C6MzeLA0C487dfKUT7FBk7suaSlbCZm+qnU3VE"
+  signing.key: "ed25519 a_test CHANGEME_generate_with_synapse_generate_keys"
