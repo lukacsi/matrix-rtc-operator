@@ -34,8 +34,8 @@ spec:
               annotations:
                 matrixrtc.lukacsi.org/redis: "$.LiveKitServerView.spec.redis.mode"
             spec:
-              replicas:
-                "@definedOr": ["$.LiveKitServerView.status.replicas", 1]
+              # replicas intentionally omitted — allows HPA to manage scaling.
+              # K8s defaults to 1 on creation. Operator doesn't own this field.
               selector: { matchLabels: { app: "livekit-server" } }
               template:
                 metadata:
