@@ -396,7 +396,9 @@ spec:
                   - "$.MatrixNetworkingView.spec.host"
                   - "\",\"server_name\":\""
                   - "$.MatrixServerView.spec.synapse.serverName"
-                  - "\"}},\"brand\":\"Element\",\"disable_custom_urls\":true,\"disable_guests\":true,\"features\":{\"feature_group_calls\":true,\"feature_video_rooms\":true,\"feature_element_call_video_rooms\":true}}"
+                  - "\"}},\"element_call\":{\"url\":\"https://call."
+                  - "$.MatrixNetworkingView.spec.bridge.wellknownHost"
+                  - "\",\"use_exclusively\":true},\"brand\":\"Element\",\"disable_custom_urls\":true,\"disable_guests\":true,\"features\":{\"feature_group_calls\":true,\"feature_video_rooms\":true,\"feature_element_call_video_rooms\":true}}"
       target:
         apiGroup: ""
         kind: ConfigMap
@@ -519,6 +521,163 @@ spec:
               rules:
                 - backendRefs:
                     - name: element-web
+                      port: 80
+      target:
+        apiGroup: gateway.networking.k8s.io
+        kind: HTTPRoute
+        type: Updater
+
+    # =====================================================================
+    # Element Call — self-hosted Element Call widget for MatrixRTC
+    # Deployed at call.<domain>. Element Web embeds this as an iframe.
+    # =====================================================================
+
+    # --- ELEMENT CALL CONFIG ---
+    - name: element-call-config
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@select":
+            "@eq": ["$.spec.clients.element.enabled", true]
+        - "@project":
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: element-call-config
+              namespace: "$.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/component: element-call
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            data:
+              config.json:
+                "@concat":
+                  - "{\"livekit\":{\"livekit_service_url\":\"https://"
+                  - "$.spec.bridge.jwtServiceHost"
+                  - "\"},\"default_server_config\":{\"m.homeserver\":{\"base_url\":\"https://"
+                  - "$.spec.host"
+                  - "\",\"server_name\":\""
+                  - "$.spec.bridge.wellknownHost"
+                  - "\"}}}"
+      target:
+        apiGroup: ""
+        kind: ConfigMap
+        type: Updater
+
+    # --- ELEMENT CALL DEPLOYMENT ---
+    - name: element-call-deployment
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@select":
+            "@eq": ["$.spec.clients.element.enabled", true]
+        - "@project":
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: element-call
+              namespace: "$.metadata.namespace"
+              labels:
+                app: element-call
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/component: element-call
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              replicas: 1
+              selector:
+                matchLabels: { app: element-call }
+              template:
+                metadata:
+                  labels:
+                    app: element-call
+                    matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                    matrixrtc.lukacsi.org/component: element-call
+                    app.kubernetes.io/managed-by: matrix-rtc-operator
+                  annotations:
+                    matrixrtc.lukacsi.org/config-hash:
+                      "@hash": "$.spec"
+                spec:
+                  containers:
+                    - name: element-call
+                      image: "ghcr.io/element-hq/element-call:latest-ci"
+                      ports:
+                        - name: http
+                          containerPort: 8080
+                      volumeMounts:
+                        - name: config
+                          mountPath: /app/config.json
+                          subPath: config.json
+                          readOnly: true
+                  volumes:
+                    - name: config
+                      configMap:
+                        name: element-call-config
+      target:
+        apiGroup: apps
+        kind: Deployment
+        type: Updater
+
+    # --- ELEMENT CALL SERVICE ---
+    - name: element-call-service
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@select":
+            "@eq": ["$.spec.clients.element.enabled", true]
+        - "@project":
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: element-call
+              namespace: "$.metadata.namespace"
+              labels:
+                app: element-call
+                matrixrtc.lukacsi.org/component: element-call
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              selector: { app: element-call }
+              ports:
+                - name: http
+                  port: 80
+                  targetPort: 8080
+      target:
+        apiGroup: ""
+        kind: Service
+        type: Updater
+
+    # --- ELEMENT CALL HTTPRoute ---
+    - name: element-call-httproute
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@select":
+            "@eq": ["$.spec.clients.element.enabled", true]
+        - "@project":
+            apiVersion: gateway.networking.k8s.io/v1
+            kind: HTTPRoute
+            metadata:
+              name: element-call
+              namespace: "$.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/component: element-call-http
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              parentRefs:
+                - name: "$.spec.httpGatewayRef.name"
+                  namespace: "$.spec.httpGatewayRef.namespace"
+              hostnames:
+                - "@concat":
+                    - "call."
+                    - "$.spec.bridge.wellknownHost"
+              rules:
+                - backendRefs:
+                    - name: element-call
                       port: 80
       target:
         apiGroup: gateway.networking.k8s.io
