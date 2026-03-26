@@ -130,6 +130,20 @@ spec:
                           - "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.userMapping.displayNameTemplate", "{{`{{ user.name }}`}}"]
                           - "\"\n"
                       - "@concat": []
+                  # Rate limiting — relaxed for personal/small homeserver
+                  - "\nrc_joins:\n"
+                  - "  local:\n"
+                  - "    per_second: 50\n"
+                  - "    burst_count: 100\n"
+                  - "  remote:\n"
+                  - "    per_second: 50\n"
+                  - "    burst_count: 100\n"
+                  - "rc_message:\n"
+                  - "  per_second: 100\n"
+                  - "  burst_count: 200\n"
+                  - "rc_registration:\n"
+                  - "  per_second: 50\n"
+                  - "  burst_count: 100\n"
                   # MatrixRTC — serve well-known with LiveKit foci for Element Call
                   - "\nserve_client_wellknown: true\n"
                   - "extra_well_known_client_content:\n"
