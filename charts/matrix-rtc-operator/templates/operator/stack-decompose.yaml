@@ -27,16 +27,6 @@ spec:
               labels:
                 matrixrtc.lukacsi.org/stack: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
-              {{- if .Values.argocd.tracking.enabled }}
-              annotations:
-                argocd.argoproj.io/tracking-id:
-                  "@concat":
-                    - "{{ .Values.argocd.tracking.appName }}:lukacsi.org/LiveKitStack:"
-                    - "$.metadata.namespace"
-                    - "/"
-                    - "$.metadata.name"
-                argocd.argoproj.io/compare-options: IgnoreExtraneous
-              {{- end }}
             spec:
               infraRef: "$.spec.infraRef"
               livekit: "$.spec.livekit"
@@ -68,16 +58,6 @@ spec:
               labels:
                 matrixrtc.lukacsi.org/stack: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
-              {{- if .Values.argocd.tracking.enabled }}
-              annotations:
-                argocd.argoproj.io/tracking-id:
-                  "@concat":
-                    - "{{ .Values.argocd.tracking.appName }}:lukacsi.org/MatrixStack:"
-                    - "$.metadata.namespace"
-                    - "/"
-                    - "$.metadata.name"
-                argocd.argoproj.io/compare-options: IgnoreExtraneous
-              {{- end }}
             spec:
               infraRef: "$.spec.infraRef"
               synapse: "$.spec.synapse"

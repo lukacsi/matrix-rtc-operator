@@ -28,16 +28,6 @@ spec:
               labels:
                 matrixrtc.lukacsi.org/stack: "$.MatrixStack.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
-              {{- if .Values.argocd.tracking.enabled }}
-              annotations:
-                argocd.argoproj.io/tracking-id:
-                  "@concat":
-                    - "{{ .Values.argocd.tracking.appName }}:lukacsi.org/MatrixServerView:"
-                    - "$.MatrixStack.metadata.namespace"
-                    - "/"
-                    - "$.MatrixStack.metadata.name"
-                argocd.argoproj.io/compare-options: IgnoreExtraneous
-              {{- end }}
             spec:
               stack: "$.MatrixStack.metadata.name"
               synapse: "$.MatrixStack.spec.synapse"
@@ -122,16 +112,6 @@ spec:
               labels:
                 matrixrtc.lukacsi.org/stack: "$.MatrixStack.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
-              {{- if .Values.argocd.tracking.enabled }}
-              annotations:
-                argocd.argoproj.io/tracking-id:
-                  "@concat":
-                    - "{{ .Values.argocd.tracking.appName }}:lukacsi.org/MatrixNetworkingView:"
-                    - "$.MatrixStack.metadata.namespace"
-                    - "/"
-                    - "$.MatrixStack.metadata.name"
-                argocd.argoproj.io/compare-options: IgnoreExtraneous
-              {{- end }}
             spec:
               stack: "$.MatrixStack.metadata.name"
               host:

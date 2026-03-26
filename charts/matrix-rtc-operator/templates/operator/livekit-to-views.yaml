@@ -28,16 +28,6 @@ spec:
               labels:
                 matrixrtc.lukacsi.org/stack: "$.LiveKitStack.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
-              {{- if .Values.argocd.tracking.enabled }}
-              annotations:
-                argocd.argoproj.io/tracking-id:
-                  "@concat":
-                    - "{{ .Values.argocd.tracking.appName }}:lukacsi.org/LiveKitServerView:"
-                    - "$.LiveKitStack.metadata.namespace"
-                    - "/"
-                    - "$.LiveKitStack.metadata.name"
-                argocd.argoproj.io/compare-options: IgnoreExtraneous
-              {{- end }}
             spec:
               stack: "$.LiveKitStack.metadata.name"
               livekit: "$.LiveKitStack.spec.livekit"
@@ -81,16 +71,6 @@ spec:
               labels:
                 matrixrtc.lukacsi.org/stack: "$.LiveKitStack.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
-              {{- if .Values.argocd.tracking.enabled }}
-              annotations:
-                argocd.argoproj.io/tracking-id:
-                  "@concat":
-                    - "{{ .Values.argocd.tracking.appName }}:lukacsi.org/LiveKitNetworkingView:"
-                    - "$.LiveKitStack.metadata.namespace"
-                    - "/"
-                    - "$.LiveKitStack.metadata.name"
-                argocd.argoproj.io/compare-options: IgnoreExtraneous
-              {{- end }}
             spec:
               livekitIngress: "$.LiveKitStack.spec.livekit.ingress.enabled"
               stack: "$.LiveKitStack.metadata.name"

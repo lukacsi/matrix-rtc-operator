@@ -1,11 +1,3 @@
 # matrix-rtc-operator default values
 crds:
   create: true
-
-# ArgoCD integration — track dcontroller-created resources in ArgoCD UI
-# without ownerReferences (no cascade GC). Resources appear in the app
-# tree as IgnoreExtraneous (visible, not synced/pruned).
-argocd:
-  tracking:
-    enabled: true
-    appName: "matrix-rtc-operator"
