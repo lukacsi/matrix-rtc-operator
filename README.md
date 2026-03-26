@@ -27,8 +27,7 @@ MatrixRTCStack (user-facing, namespaced)
 │   └── LiveKitNetworkingView → HTTPRoute, UDPRoute
 └── MatrixStack
     ├── MatrixServerView     → Deployment, Service, ConfigMap, CNPG Cluster
-    ├── MatrixNetworkingView → HTTPRoute (.well-known, federation)
-    └── MatrixClientView     → Deployment, Service, HTTPRoute (per client)
+    └── MatrixNetworkingView → HTTPRoute (.well-known, federation, clients)
 
 RTCInfrastructure (cluster-scoped, one per cluster)
 └── Manages/references: STUNner Gateway, cert-manager ClusterIssuer, CNPG operator
@@ -72,28 +71,32 @@ metadata:
   name: my-stack
   namespace: matrix
 spec:
-  matrix:
-    synapse:
-      serverName: "example.com"
-      signingKey:
-        existingSecret: "synapse-signing-key"
-        signingKeyKey: "signing.key"
-    database:
-      mode: "managed"
-      storage:
-        size: "10Gi"
-    clients:
-      - name: element
-        enabled: true
-      - name: cinny
-        enabled: true
+  synapse:
+    image: "matrixdotorg/synapse:v1.121.1"
+    serverName: "example.com"
+    signingKey:
+      existingSecret: "synapse-signing-key"
+      signingKeyKey: "signing.key"
+  database:
+    mode: "managed"
+    storage:
+      size: "10Gi"
   livekit:
+    image: "livekit/livekit-server:v1.8.4"
     keys:
       existingSecret: "livekit-auth"
       apiKeyKey: "api-key"
       apiSecretKey: "api-secret"
-    redis:
-      mode: "managed"
+  redis:
+    mode: "managed"
+    keys:
+      existingSecret: "redis-auth"
+      passwordKey: "password"
+  clients:
+    element:
+      enabled: true
+    cinny:
+      enabled: true
 ```
 
 ## Project Structure
@@ -113,7 +116,7 @@ docs/                          # Research and design documents
 ## Key Design Patterns
 
 - **Split-view reconciliation**: CRD decomposes into ServerView (compute) + NetworkingView (routing), decoupling failure domains
-- **Late-binding secrets**: Config templates with placeholder tokens + env var substitution at runtime
+- **Late-binding secrets**: Config templates with default placeholders + env var substitution at runtime
 - **Managed/BYO infrastructure**: Every infrastructure component supports both operator-managed and bring-your-own modes
 - **Fan-in status aggregation**: K8s resource status flows up through Views to CRDs via Patcher pipelines
 - **`@hash` rollout triggers**: Secret data hashed into pod annotations to force rolling updates on credential rotation
