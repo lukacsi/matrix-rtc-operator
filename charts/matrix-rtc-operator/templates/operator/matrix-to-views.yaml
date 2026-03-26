@@ -148,7 +148,7 @@ spec:
                   enabled:
                     "@definedOr": ["$.MatrixStack.spec.clients.cinny.enabled", false]
                   image:
-                    "@definedOr": ["$.MatrixStack.spec.clients.cinny.image", "ajbura/cinny:v4.10.5"]
+                    "@definedOr": ["$.MatrixStack.spec.clients.cinny.image", "ajbura/cinny:v4.11.1"]
                   replicas:
                     "@definedOr": ["$.MatrixStack.spec.clients.cinny.replicas", 1]
                   resources: "$.MatrixStack.spec.clients.cinny.resources"
