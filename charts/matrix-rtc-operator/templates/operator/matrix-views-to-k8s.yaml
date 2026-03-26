@@ -716,8 +716,8 @@ spec:
             data:
               config.json:
                 "@concat":
-                  - "{\"defaultHomeserver\":0,\"homeserverList\":[\""
-                  - "$.MatrixServerView.spec.synapse.serverName"
+                  - "{\"defaultHomeserver\":0,\"homeserverList\":[\"https://"
+                  - "$.MatrixNetworkingView.spec.host"
                   - "\"],\"allowCustomHomeservers\":false}"
       target:
         apiGroup: ""
