@@ -33,6 +33,14 @@ spec:
                 app.kubernetes.io/managed-by: matrix-rtc-operator
               annotations:
                 matrixrtc.lukacsi.org/redis: "$.LiveKitServerView.spec.redis.mode"
+                {{- if .Values.argocd.tracking.enabled }}
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:apps/Deployment:"
+                    - "$.LiveKitServerView.metadata.namespace"
+                    - "/livekit-server"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+                {{- end }}
             spec:
               # replicas intentionally omitted — allows HPA to manage scaling.
               # K8s defaults to 1 on creation. Operator doesn't own this field.
@@ -112,6 +120,15 @@ spec:
                 matrixrtc.lukacsi.org/component: livekit
                 matrixrtc.lukacsi.org/view: "$.LiveKitNetworkingView.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/Secret:"
+                    - "$.LiveKitNetworkingView.metadata.namespace"
+                    - "/livekit-config"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             stringData:
               livekit.yaml:
                 "@concat":
@@ -161,6 +178,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/view: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/Service:"
+                    - "$.metadata.namespace"
+                    - "/livekit-sig"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               selector: { app: "livekit-server" }
               ports: [{ name: http, port: 7880, targetPort: 7880 }]
@@ -187,6 +213,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/view: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:gateway.networking.k8s.io/HTTPRoute:"
+                    - "$.metadata.namespace"
+                    - "/livekit"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               parentRefs:
                 - name: "$.spec.httpGatewayRef.name"
@@ -219,6 +254,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/view: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:stunner.l7mp.io/UDPRoute:"
+                    - "$.metadata.namespace"
+                    - "/livekit-media"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               parentRefs:
                 - name: "$.spec.udpGatewayRef.name"
@@ -253,6 +297,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/view: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:apps/StatefulSet:"
+                    - "$.metadata.namespace"
+                    - "/redis"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               serviceName: "redis"
               selector:
@@ -304,6 +357,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/view: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/Service:"
+                    - "$.metadata.namespace"
+                    - "/redis"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               type: ClusterIP
               selector: { app: "redis" }
@@ -343,6 +405,14 @@ spec:
                 app.kubernetes.io/managed-by: matrix-rtc-operator
               annotations:
                 matrixrtc.lukacsi.org/redis: "$.LiveKitServerView.spec.redis.mode"
+                {{- if .Values.argocd.tracking.enabled }}
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:apps/Deployment:"
+                    - "$.LiveKitServerView.metadata.namespace"
+                    - "/livekit-ingress"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+                {{- end }}
             spec:
               selector:
                 matchLabels: { app: livekit-ingress }
@@ -399,6 +469,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/view: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/Service:"
+                    - "$.metadata.namespace"
+                    - "/livekit-ingress"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               selector: { app: livekit-ingress }
               type: LoadBalancer
@@ -437,6 +516,15 @@ spec:
                 matrixrtc.lukacsi.org/component: ingress
                 matrixrtc.lukacsi.org/view: "$.LiveKitNetworkingView.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/Secret:"
+                    - "$.LiveKitNetworkingView.metadata.namespace"
+                    - "/ingress-config"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             stringData:
               ingress.yaml:
                 "@concat":

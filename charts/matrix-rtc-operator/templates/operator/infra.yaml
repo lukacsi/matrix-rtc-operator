@@ -27,6 +27,15 @@ spec:
               namespace: "$.metadata.labels['matrixrtc.lukacsi.org/cert-namespace']"
               labels:
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:cert-manager.io/Certificate:"
+                    - "$.metadata.labels['matrixrtc.lukacsi.org/cert-namespace']"
+                    - "/matrixrtc-wildcard-cert"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               secretName: matrixrtc-tls
               issuerRef:
@@ -55,6 +64,14 @@ spec:
               name: "$.spec.certManager.issuerRef.name"
               labels:
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:cert-manager.io/ClusterIssuer:/"
+                    - "$.spec.certManager.issuerRef.name"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               acme:
                 email: "$.spec.certManager.email"
@@ -89,6 +106,15 @@ spec:
               namespace: "$.spec.stunner.gatewayNamespace"
               labels:
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:stunner.l7mp.io/GatewayConfig:"
+                    - "$.spec.stunner.gatewayNamespace"
+                    - "/stunner-gatewayconfig"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               realm: "$.spec.stunner.realm"
               authType: plaintext
@@ -116,6 +142,11 @@ spec:
               name: stunner-gatewayclass
               labels:
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id: "{{ .Values.argocd.tracking.appName }}:gateway.networking.k8s.io/GatewayClass:/stunner-gatewayclass"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               controllerName: stunner.l7mp.io/gateway-operator
               parametersRef:
@@ -158,6 +189,15 @@ spec:
                           - "$.spec.stunner.nodePort"
                           - 0
                     - "}"
+                {{- if .Values.argocd.tracking.enabled }}
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:gateway.networking.k8s.io/Gateway:"
+                    - "$.spec.stunner.gatewayNamespace"
+                    - "/"
+                    - "$.spec.stunner.gatewayName"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+                {{- end }}
             spec:
               gatewayClassName: stunner-gatewayclass
               listeners:

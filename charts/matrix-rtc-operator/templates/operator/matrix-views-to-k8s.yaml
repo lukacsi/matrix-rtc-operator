@@ -38,6 +38,15 @@ spec:
                 matrixrtc.lukacsi.org/component: synapse
                 matrixrtc.lukacsi.org/view: "$.MatrixServerView.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/Secret:"
+                    - "$.MatrixServerView.metadata.namespace"
+                    - "/synapse-config"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             stringData:
               homeserver.yaml:
                 "@concat":
@@ -153,6 +162,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/component: synapse
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/PersistentVolumeClaim:"
+                    - "$.metadata.namespace"
+                    - "/synapse-data"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               accessModes: ["ReadWriteOnce"]
               resources:
@@ -188,6 +206,15 @@ spec:
                 matrixrtc.lukacsi.org/component: synapse
                 matrixrtc.lukacsi.org/view: "$.MatrixServerView.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:apps/Deployment:"
+                    - "$.MatrixServerView.metadata.namespace"
+                    - "/synapse"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               replicas:
                 "@definedOr": ["$.MatrixServerView.spec.synapse.replicas", 1]
@@ -314,6 +341,16 @@ spec:
                 matrixrtc.lukacsi.org/component: database
                 matrixrtc.lukacsi.org/view: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:postgresql.cnpg.io/Cluster:"
+                    - "$.metadata.namespace"
+                    - "/"
+                    - "@concat": ["$.spec.stack", "-db"]
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               instances:
                 "@definedOr": ["$.spec.database.instances", 1]
@@ -349,6 +386,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/view: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/Service:"
+                    - "$.metadata.namespace"
+                    - "/synapse"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               selector: { app: "synapse" }
               ports:
@@ -378,6 +424,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/view: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:gateway.networking.k8s.io/HTTPRoute:"
+                    - "$.metadata.namespace"
+                    - "/synapse"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               parentRefs:
                 - name: "$.spec.httpGatewayRef.name"
@@ -419,6 +474,15 @@ spec:
                 matrixrtc.lukacsi.org/component: element
                 matrixrtc.lukacsi.org/view: "$.MatrixNetworkingView.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/ConfigMap:"
+                    - "$.MatrixNetworkingView.metadata.namespace"
+                    - "/element-config"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             data:
               config.json:
                 "@concat":
@@ -455,6 +519,15 @@ spec:
                 matrixrtc.lukacsi.org/component: element
                 matrixrtc.lukacsi.org/view: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:apps/Deployment:"
+                    - "$.metadata.namespace"
+                    - "/element-web"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               replicas:
                 "@definedOr": ["$.spec.clients.element.replicas", 1]
@@ -513,6 +586,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/view: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/Service:"
+                    - "$.metadata.namespace"
+                    - "/element-web"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               selector: { app: element-web }
               ports:
@@ -543,6 +625,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/view: "$.metadata.name"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:gateway.networking.k8s.io/HTTPRoute:"
+                    - "$.metadata.namespace"
+                    - "/element"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               parentRefs:
                 - name: "$.spec.httpGatewayRef.name"
@@ -580,6 +671,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/component: element-call
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/ConfigMap:"
+                    - "$.metadata.namespace"
+                    - "/element-call-config"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             data:
               config.json:
                 "@concat":
@@ -614,6 +714,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/component: element-call
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:apps/Deployment:"
+                    - "$.metadata.namespace"
+                    - "/element-call"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               replicas: 1
               selector:
@@ -671,6 +780,15 @@ spec:
                 matrixrtc.lukacsi.org/component: element-call
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/Service:"
+                    - "$.metadata.namespace"
+                    - "/element-call"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               selector: { app: element-call }
               ports:
@@ -700,6 +818,15 @@ spec:
                 matrixrtc.lukacsi.org/component: element-call-http
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:gateway.networking.k8s.io/HTTPRoute:"
+                    - "$.metadata.namespace"
+                    - "/element-call"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               parentRefs:
                 - name: "$.spec.httpGatewayRef.name"
@@ -746,6 +873,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.MatrixNetworkingView.spec.stack"
                 matrixrtc.lukacsi.org/component: cinny
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/ConfigMap:"
+                    - "$.MatrixNetworkingView.metadata.namespace"
+                    - "/cinny-config"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             data:
               config.json:
                 "@concat":
@@ -776,6 +912,15 @@ spec:
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 matrixrtc.lukacsi.org/component: cinny
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:apps/Deployment:"
+                    - "$.metadata.namespace"
+                    - "/cinny"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               selector:
                 matchLabels: { app: cinny }
@@ -830,6 +975,15 @@ spec:
                 matrixrtc.lukacsi.org/component: cinny
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:/Service:"
+                    - "$.metadata.namespace"
+                    - "/cinny"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               selector: { app: cinny }
               ports:
@@ -859,6 +1013,15 @@ spec:
                 matrixrtc.lukacsi.org/component: cinny-http
                 matrixrtc.lukacsi.org/stack: "$.spec.stack"
                 app.kubernetes.io/managed-by: matrix-rtc-operator
+              {{- if .Values.argocd.tracking.enabled }}
+              annotations:
+                argocd.argoproj.io/tracking-id:
+                  "@concat":
+                    - "{{ .Values.argocd.tracking.appName }}:gateway.networking.k8s.io/HTTPRoute:"
+                    - "$.metadata.namespace"
+                    - "/cinny"
+                argocd.argoproj.io/compare-options: IgnoreExtraneous
+              {{- end }}
             spec:
               parentRefs:
                 - name: "$.spec.httpGatewayRef.name"
