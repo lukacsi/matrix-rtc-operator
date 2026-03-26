@@ -683,3 +683,159 @@ spec:
         apiGroup: gateway.networking.k8s.io
         kind: HTTPRoute
         type: Updater
+
+    # =====================================================================
+    # Cinny — Discord-like Matrix client with MatrixRTC support
+    # Deployed at chat.<domain>. Conditional on clients.cinny.enabled.
+    # =====================================================================
+
+    # --- CINNY CONFIG ---
+    - name: cinny-config-generator
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixServerView
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@join":
+            "@and":
+              - "@eq": ["$.MatrixServerView.metadata.name", "$.MatrixNetworkingView.metadata.name"]
+              - "@eq": ["$.MatrixServerView.metadata.namespace", "$.MatrixNetworkingView.metadata.namespace"]
+        - "@select":
+            "@eq": ["$.MatrixNetworkingView.spec.clients.cinny.enabled", true]
+        - "@project":
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: cinny-config
+              namespace: "$.MatrixNetworkingView.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/stack: "$.MatrixNetworkingView.spec.stack"
+                matrixrtc.lukacsi.org/component: cinny
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            data:
+              config.json:
+                "@concat":
+                  - "{\"defaultHomeserver\":0,\"homeserverList\":[\""
+                  - "$.MatrixServerView.spec.synapse.serverName"
+                  - "\"],\"allowCustomHomeservers\":false}"
+      target:
+        apiGroup: ""
+        kind: ConfigMap
+        type: Updater
+
+    # --- CINNY DEPLOYMENT ---
+    - name: cinny-deployment
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@select":
+            "@eq": ["$.spec.clients.cinny.enabled", true]
+        - "@project":
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: cinny
+              namespace: "$.metadata.namespace"
+              labels:
+                app: cinny
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                matrixrtc.lukacsi.org/component: cinny
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              selector:
+                matchLabels: { app: cinny }
+              template:
+                metadata:
+                  labels:
+                    app: cinny
+                    matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                    matrixrtc.lukacsi.org/component: cinny
+                    app.kubernetes.io/managed-by: matrix-rtc-operator
+                  annotations:
+                    matrixrtc.lukacsi.org/config-hash:
+                      "@hash": "$.spec"
+                spec:
+                  containers:
+                    - name: cinny
+                      image: "$.spec.clients.cinny.image"
+                      ports:
+                        - name: http
+                          containerPort: 80
+                      resources: "$.spec.clients.cinny.resources"
+                      volumeMounts:
+                        - name: config
+                          mountPath: /app/config.json
+                          subPath: config.json
+                          readOnly: true
+                  volumes:
+                    - name: config
+                      configMap:
+                        name: cinny-config
+      target:
+        apiGroup: apps
+        kind: Deployment
+        type: Updater
+
+    # --- CINNY SERVICE ---
+    - name: cinny-service
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@select":
+            "@eq": ["$.spec.clients.cinny.enabled", true]
+        - "@project":
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: cinny
+              namespace: "$.metadata.namespace"
+              labels:
+                app: cinny
+                matrixrtc.lukacsi.org/component: cinny
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              selector: { app: cinny }
+              ports:
+                - name: http
+                  port: 80
+                  targetPort: 80
+      target:
+        apiGroup: ""
+        kind: Service
+        type: Updater
+
+    # --- CINNY HTTPRoute ---
+    - name: cinny-httproute
+      sources:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+      pipeline:
+        - "@select":
+            "@eq": ["$.spec.clients.cinny.enabled", true]
+        - "@project":
+            apiVersion: gateway.networking.k8s.io/v1
+            kind: HTTPRoute
+            metadata:
+              name: cinny
+              namespace: "$.metadata.namespace"
+              labels:
+                matrixrtc.lukacsi.org/component: cinny-http
+                matrixrtc.lukacsi.org/stack: "$.spec.stack"
+                app.kubernetes.io/managed-by: matrix-rtc-operator
+            spec:
+              parentRefs:
+                - name: "$.spec.httpGatewayRef.name"
+                  namespace: "$.spec.httpGatewayRef.namespace"
+              hostnames: ["$.spec.clients.cinny.host"]
+              rules:
+                - backendRefs:
+                    - name: cinny
+                      port: 80
+      target:
+        apiGroup: gateway.networking.k8s.io
+        kind: HTTPRoute
+        type: Updater
