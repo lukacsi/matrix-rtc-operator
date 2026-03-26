@@ -101,13 +101,11 @@ spec:
 ```
 charts/matrix-rtc-operator/
   ├── Chart.yaml
-  ├── values.yaml              # Full configuration with @param comments
-  ├── values.schema.json       # Helm validation schema
+  ├── values.yaml              # Default values
   ├── templates/
   │   ├── operator/            # dcontroller pipeline definitions
   │   ├── crds/                # Custom Resource Definitions
   │   └── rbac.yaml            # RBAC for dcontroller runtime
-  └── ci/                      # CI test values
 hack/                          # Example CRs for testing
 docs/                          # Research and design documents
 ```
