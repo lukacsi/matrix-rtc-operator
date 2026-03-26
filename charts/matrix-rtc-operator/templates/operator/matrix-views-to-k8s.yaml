@@ -601,10 +601,13 @@ spec:
                 spec:
                   containers:
                     - name: element-call
-                      image: "ghcr.io/element-hq/element-call:latest-ci"
+                      image: "ghcr.io/element-hq/element-call:v0.9.2"
                       ports:
                         - name: http
                           containerPort: 8080
+                      resources:
+                        requests: { cpu: "50m", memory: "64Mi" }
+                        limits: { memory: "256Mi" }
                       volumeMounts:
                         - name: config
                           mountPath: /app/config.json

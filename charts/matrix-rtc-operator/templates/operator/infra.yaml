@@ -91,9 +91,10 @@ spec:
                 app.kubernetes.io/managed-by: matrix-rtc-operator
             spec:
               realm: "$.spec.stunner.realm"
-              authType: static
-              userName: "$.spec.stunner.username"
-              password: "$.spec.stunner.password"
+              authType: plaintext
+              authRef:
+                name: "$.spec.stunner.defaultKeyRef.secretName"
+                namespace: "$.spec.stunner.gatewayNamespace"
       target:
         apiGroup: stunner.l7mp.io
         kind: GatewayConfig
