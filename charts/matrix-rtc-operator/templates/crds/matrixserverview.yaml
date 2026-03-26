@@ -62,6 +62,10 @@ spec:
                     config:
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
+                    appservices:
+                      type: object
+                      properties:
+                        registrationsSecret: { type: string }
                     oidc:
                       type: object
                       properties:

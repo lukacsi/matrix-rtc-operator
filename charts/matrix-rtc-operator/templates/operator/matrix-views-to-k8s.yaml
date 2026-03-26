@@ -205,15 +205,30 @@ spec:
                     matrixrtc.lukacsi.org/config-hash:
                       "@hash": "$.Secret.data"
                 spec:
+                  # Init container: discovers appservice registration files
+                  # and generates a supplementary Synapse config listing them.
+                  # Runs always — produces empty config ({}) when no appservices.
+                  initContainers:
+                    - name: appservice-discovery
+                      image: "busybox:1.37"
+                      command: ["/bin/sh", "-c"]
+                      args:
+                        - "if ls /appservices/*.yaml 1>/dev/null 2>&1; then echo 'app_service_config_files:' > /config-extra/appservices.yaml; for f in /appservices/*.yaml; do echo \"  - $f\" >> /config-extra/appservices.yaml; done; else echo '{}' > /config-extra/appservices.yaml; fi"
+                      volumeMounts:
+                        - name: appservices
+                          mountPath: /appservices
+                          readOnly: true
+                        - name: config-extra
+                          mountPath: /config-extra
                   containers:
                     - name: synapse
                       image: "$.MatrixServerView.spec.synapse.image"
+                      # Bypass /start.py — load main config + appservice config
+                      command: ["python", "-m", "synapse.app.homeserver"]
+                      args: ["--config-path", "/config/homeserver.yaml", "--config-path", "/config-extra/appservices.yaml"]
                       ports:
                         - name: http
                           containerPort: 8008
-                      env:
-                        - name: SYNAPSE_CONFIG_PATH
-                          value: "/config/homeserver.yaml"
                       resources: "$.MatrixServerView.spec.synapse.resources"
                       livenessProbe:
                         httpGet:
@@ -241,6 +256,12 @@ spec:
                         - name: oidc-secret
                           mountPath: /secrets/oidc
                           readOnly: true
+                        - name: appservices
+                          mountPath: /appservices
+                          readOnly: true
+                        - name: config-extra
+                          mountPath: /config-extra
+                          readOnly: true
                   volumes:
                     - name: config
                       secret:
@@ -258,6 +279,15 @@ spec:
                             - "$.MatrixServerView.spec.synapse.oidc.clientSecret.existingSecret"
                             - "synapse-oidc-unused"
                         optional: true
+                    - name: appservices
+                      secret:
+                        secretName:
+                          "@definedOr":
+                            - "$.MatrixServerView.spec.synapse.appservices.registrationsSecret"
+                            - "synapse-appservice-registrations-unused"
+                        optional: true
+                    - name: config-extra
+                      emptyDir: {}
       target:
         apiGroup: "apps"
         kind: "Deployment"

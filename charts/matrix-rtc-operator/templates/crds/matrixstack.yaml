@@ -76,6 +76,14 @@ spec:
                       x-kubernetes-preserve-unknown-fields: true
                       description: "Extra homeserver.yaml values merged into generated config"
                     # OIDC/SSO authentication
+                    # Appservice bridge registrations
+                    appservices:
+                      type: object
+                      description: "Application Service bridge registration (e.g., mautrix-discord)"
+                      properties:
+                        registrationsSecret:
+                          type: string
+                          description: "Secret containing appservice registration YAML files as keys (each key = one registration file)"
                     oidc:
                       type: object
                       description: "OIDC authentication provider (e.g., Authentik, Keycloak)"
