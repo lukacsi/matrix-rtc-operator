@@ -136,7 +136,7 @@ spec:
                   - "@string": "$.LiveKitNetworkingView.spec.turnPort"
                   - "\n      protocol: udp\n      username: "
                   - "$.Secret.data['stunner-username']"
-                  - "\n  use_external_ip: false\nturn:\n  enabled: false"
+                  - "\n  use_external_ip: false\n  interfaces:\n    includes:\n      - eth0\nturn:\n  enabled: false"
       target:
         apiGroup: ""
         kind: Secret

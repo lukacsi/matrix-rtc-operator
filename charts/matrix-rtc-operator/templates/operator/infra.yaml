@@ -150,6 +150,8 @@ spec:
                   "@definedOr":
                     - "$.spec.stunner.serviceType"
                     - "LoadBalancer"
+                # TURN requires stable client source IP:port — Local preserves it
+                stunner.l7mp.io/external-traffic-policy: "Local"
                 stunner.l7mp.io/nodeport:
                   "@concat":
                     - "{\"udp-listener\": "
