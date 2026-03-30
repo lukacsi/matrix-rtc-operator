@@ -54,7 +54,12 @@ spec:
                     - name: livekit
                       image: "$.LiveKitServerView.spec.livekit.image"
                       command: ["/livekit-server"]
-                      args: ["--config", "/etc/livekit/livekit.yaml"]
+                      args: ["--config", "/etc/livekit/livekit.yaml", "--node-ip", "$(NODE_IP)"]
+                      env:
+                        - name: NODE_IP
+                          valueFrom:
+                            fieldRef:
+                              fieldPath: status.podIP
                       resources: "$.LiveKitServerView.spec.livekit.resources"
                       ports: [{ name: http, containerPort: 7880 }]
                       livenessProbe:
