@@ -108,6 +108,16 @@ spec:
                           properties:
                             localpartTemplate: { type: string }
                             displayNameTemplate: { type: string }
+                    # Persistent storage for Synapse media_store and uploads.
+                    # storageClass should be a movable class (NFS/CSI) to
+                    # avoid node-pinning that blocks autoscaler + drain.
+                    storage:
+                      type: object
+                      properties:
+                        size: { type: string, default: "10Gi" }
+                        storageClass:
+                          type: string
+                          description: "StorageClass for synapse-data PVC. Avoid node-pinned classes (local-path) — they block autoscaler scale-up (volume node affinity conflict)."
 
                 # --- Database ---
                 database:
@@ -120,6 +130,10 @@ spec:
                       description: "managed = CNPG PostgreSQL, external = user-provided"
                     # Managed (CNPG) options
                     instances: { type: integer, default: 1 }
+                    enablePDB:
+                      type: boolean
+                      default: false
+                      description: "Create PodDisruptionBudget for CNPG cluster. Keep false for single-instance (default) — a 0-disruption PDB blocks node drain. Set true only if instances >= 3."
                     storage:
                       type: object
                       properties:

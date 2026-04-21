@@ -29,10 +29,10 @@ spec:
               availableReplicas: "$.status.availableReplicas"
               serviceName: "synapse"
               conditions: "$.status.conditions"
-      target:
-        apiGroup: lukacsi.org
-        kind: MatrixServerView
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: MatrixServerView
+          type: Patcher
 
     # HTTPRoute ready → MatrixNetworkingView
     - name: httproute-status-to-networking-view
@@ -59,10 +59,10 @@ spec:
                             - "@eq": ["$$.status", "True"]
                         - "@definedOr": ["$.status.parents[0].conditions", []]
                   - 0
-      target:
-        apiGroup: lukacsi.org
-        kind: MatrixNetworkingView
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+          type: Patcher
 
     # Element Web deployment status → MatrixNetworkingView
     - name: element-status-to-networking-view
@@ -86,10 +86,10 @@ spec:
                     "@gt": [{ "@definedOr": ["$.status.readyReplicas", 0] }, 0]
                   replicas: "$.status.replicas"
                   readyReplicas: "$.status.readyReplicas"
-      target:
-        apiGroup: lukacsi.org
-        kind: MatrixNetworkingView
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: MatrixNetworkingView
+          type: Patcher
 
     # --- Aggregate → MatrixStack (single writer, no Patcher race) ---
     # DB readiness is implicit: if CNPG isn't ready, config secret doesn't exist,
@@ -144,7 +144,7 @@ spec:
                 synapse:
                   replicas: "$.Deployment.status.replicas"
                   readyReplicas: "$.Deployment.status.readyReplicas"
-      target:
-        apiGroup: lukacsi.org
-        kind: MatrixStack
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: MatrixStack
+          type: Patcher

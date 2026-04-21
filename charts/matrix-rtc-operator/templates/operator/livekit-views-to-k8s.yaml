@@ -85,10 +85,10 @@ spec:
                   volumes:
                     - name: cfg
                       secret: { secretName: "livekit-config" }
-      target:
-        apiGroup: "apps"
-        kind: "Deployment"
-        type: Updater
+      targets:
+        - apiGroup: "apps"
+          kind: "Deployment"
+          type: Updater
 
     # --- LIVEKIT CONFIG (the core config generator with TURN address resolution) ---
     - name: livekit-config-generator
@@ -144,10 +144,10 @@ spec:
                   - "\n      protocol: udp\n      username: "
                   - "$.Secret.data['stunner-username']"
                   - "\n  use_external_ip: false\n  interfaces:\n    includes:\n      - eth0\nturn:\n  enabled: false"
-      target:
-        apiGroup: ""
-        kind: Secret
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: Secret
+          type: Updater
 
     # --- LIVEKIT SERVICE ---
     - name: networking-view-to-svc
@@ -171,10 +171,10 @@ spec:
             spec:
               selector: { app: "livekit-server" }
               ports: [{ name: http, port: 7880, targetPort: 7880 }]
-      target:
-        apiGroup: ""
-        kind: "Service"
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: "Service"
+          type: Updater
 
     # --- HTTPRoute (gateway-agnostic — works with Traefik, Envoy, Cilium) ---
     - name: networking-view-to-httproute
@@ -203,10 +203,10 @@ spec:
                 - backendRefs:
                     - name: livekit-sig
                       port: 7880
-      target:
-        apiGroup: gateway.networking.k8s.io
-        kind: "HTTPRoute"
-        type: Updater
+      targets:
+        - apiGroup: gateway.networking.k8s.io
+          kind: "HTTPRoute"
+          type: Updater
 
     # --- UDPRoute (STUNner) ---
     - name: networking-view-to-udproute
@@ -234,10 +234,10 @@ spec:
                 - backendRefs:
                     - name: "livekit-sig"
                       namespace: "$.metadata.namespace"
-      target:
-        apiGroup: stunner.l7mp.io
-        kind: "UDPRoute"
-        type: Updater
+      targets:
+        - apiGroup: stunner.l7mp.io
+          kind: "UDPRoute"
+          type: Updater
 
     # --- REDIS (managed mode only) ---
     - name: server-view-to-redis-statefulset
@@ -287,10 +287,10 @@ spec:
                   volumes:
                     - name: data
                       emptyDir: {}
-      target:
-        apiGroup: apps
-        kind: StatefulSet
-        type: Updater
+      targets:
+        - apiGroup: apps
+          kind: StatefulSet
+          type: Updater
 
     - name: networking-view-to-redis-service
       sources:
@@ -318,10 +318,10 @@ spec:
                 - name: redis
                   port: "$.spec.redis.port"
                   targetPort: "$.spec.redis.port"
-      target:
-        apiGroup: ""
-        kind: Service
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: Service
+          type: Updater
 
     # --- LIVEKIT INGRESS (optional RTMP bridge) ---
     - name: server-view-to-ingress-deployment
@@ -382,10 +382,10 @@ spec:
                   volumes:
                     - name: ingress-config
                       secret: { secretName: ingress-config }
-      target:
-        apiGroup: apps
-        kind: Deployment
-        type: Updater
+      targets:
+        - apiGroup: apps
+          kind: Deployment
+          type: Updater
 
     - name: networking-view-to-ingress-service
       sources:
@@ -411,10 +411,10 @@ spec:
               type: LoadBalancer
               ports:
                 - { name: rtmp, port: 1935, targetPort: 1935, protocol: TCP }
-      target:
-        apiGroup: ""
-        kind: Service
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: Service
+          type: Updater
 
     - name: ingress-config-generator
       sources:
@@ -458,7 +458,7 @@ spec:
                   - "\n  password: "
                   - "$.Secret.data['redis-password']"
                   - "\nrtmp_port: 1935\nlogging:\n  level: info"
-      target:
-        apiGroup: ""
-        kind: Secret
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: Secret
+          type: Updater

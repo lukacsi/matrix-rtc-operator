@@ -81,10 +81,10 @@ spec:
                           value: "$.MatrixServerView.spec.synapse.serverName"
                         - name: LK_JWT_PORT
                           value: "8080"
-      target:
-        apiGroup: apps
-        kind: Deployment
-        type: Updater
+      targets:
+        - apiGroup: apps
+          kind: Deployment
+          type: Updater
 
     # --- JWT SERVICE ---
     - name: jwt-service-service
@@ -110,10 +110,10 @@ spec:
                 - name: http
                   port: 8080
                   targetPort: 8080
-      target:
-        apiGroup: ""
-        kind: Service
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: Service
+          type: Updater
 
     # --- JWT SERVICE HTTPRoute ---
     - name: jwt-service-httproute
@@ -141,10 +141,10 @@ spec:
                 - backendRefs:
                     - name: lk-jwt-service
                       port: 8080
-      target:
-        apiGroup: gateway.networking.k8s.io
-        kind: HTTPRoute
-        type: Updater
+      targets:
+        - apiGroup: gateway.networking.k8s.io
+          kind: HTTPRoute
+          type: Updater
 
     # =====================================================================
     # .well-known — Matrix server/client discovery + MatrixRTC LiveKit foci
@@ -181,10 +181,10 @@ spec:
                   - "$.spec.host"
                   - ":443\"}"
               nginx.conf: "server {\n  listen 80;\n  location /.well-known/matrix/client {\n    default_type application/json;\n    add_header Access-Control-Allow-Origin *;\n    alias /data/client;\n  }\n  location /.well-known/matrix/server {\n    default_type application/json;\n    alias /data/server;\n  }\n  location /health {\n    return 200 'ok';\n  }\n}\n"
-      target:
-        apiGroup: ""
-        kind: ConfigMap
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: ConfigMap
+          type: Updater
 
     # --- WELLKNOWN DEPLOYMENT ---
     - name: wellknown-deployment
@@ -246,10 +246,10 @@ spec:
                     - name: data-server
                       configMap:
                         name: matrix-wellknown
-      target:
-        apiGroup: apps
-        kind: Deployment
-        type: Updater
+      targets:
+        - apiGroup: apps
+          kind: Deployment
+          type: Updater
 
     # --- WELLKNOWN SERVICE ---
     - name: wellknown-service
@@ -275,10 +275,10 @@ spec:
                 - name: http
                   port: 80
                   targetPort: 80
-      target:
-        apiGroup: ""
-        kind: Service
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: Service
+          type: Updater
 
     # --- WELLKNOWN HTTPRoute ---
     # Serves on the apex domain (e.g., lukacsi.org) at /.well-known/matrix/*
@@ -311,7 +311,7 @@ spec:
                   backendRefs:
                     - name: matrix-wellknown
                       port: 80
-      target:
-        apiGroup: gateway.networking.k8s.io
-        kind: HTTPRoute
-        type: Updater
+      targets:
+        - apiGroup: gateway.networking.k8s.io
+          kind: HTTPRoute
+          type: Updater

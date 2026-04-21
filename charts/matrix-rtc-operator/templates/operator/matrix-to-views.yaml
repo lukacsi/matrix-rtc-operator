@@ -86,10 +86,10 @@ spec:
                 storage: "$.MatrixStack.spec.database.storage"
                 image: "$.MatrixStack.spec.database.image"
               clients: "$.MatrixStack.spec.clients"
-      target:
-        apiGroup: "lukacsi.org"
-        kind: "MatrixServerView"
-        type: Updater
+      targets:
+        - apiGroup: "lukacsi.org"
+          kind: "MatrixServerView"
+          type: Updater
 
     - name: matrix-to-networking-view
       sources:
@@ -170,7 +170,7 @@ spec:
                   "@definedOr":
                     - "$.MatrixStack.spec.bridge.wellknownHost"
                     - "$.RTCInfrastructure.spec.domain"
-      target:
-        apiGroup: "lukacsi.org"
-        kind: "MatrixNetworkingView"
-        type: Updater
+      targets:
+        - apiGroup: "lukacsi.org"
+          kind: "MatrixNetworkingView"
+          type: Updater

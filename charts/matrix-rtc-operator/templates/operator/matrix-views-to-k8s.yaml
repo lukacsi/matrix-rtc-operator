@@ -143,10 +143,10 @@ spec:
                   - "      livekit_service_url: \"https://"
                   - "$.MatrixNetworkingView.spec.bridge.jwtServiceHost"
                   - "\"\n"
-      target:
-        apiGroup: ""
-        kind: Secret
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: Secret
+          type: Updater
 
     # --- SYNAPSE DATA PVC ---
     # Persistent storage for media_store and uploads. PVC is immutable after
@@ -169,13 +169,27 @@ spec:
                 app.kubernetes.io/managed-by: matrix-rtc-operator
             spec:
               accessModes: ["ReadWriteOnce"]
+              # Pin the storageClass explicitly — defaulting to the cluster
+              # default often means node-pinned classes (local-path) which
+              # block autoscaler scale-up and node drain (volume node affinity
+              # conflict). Set spec.synapse.storage.storageClass on the
+              # MatrixRTCStack CR to override. Operator default assumes a
+              # movable NFS/CSI class named "ssd-nfs"; override via values /
+              # stack spec in environments where that name differs.
+              storageClassName:
+                "@definedOr":
+                  - "$.spec.synapse.storage.storageClass"
+                  - "ssd-nfs"
               resources:
                 requests:
-                  storage: "10Gi"
-      target:
-        apiGroup: ""
-        kind: PersistentVolumeClaim
-        type: Updater
+                  storage:
+                    "@definedOr":
+                      - "$.spec.synapse.storage.size"
+                      - "10Gi"
+      targets:
+        - apiGroup: ""
+          kind: PersistentVolumeClaim
+          type: Updater
 
     # --- SYNAPSE DEPLOYMENT ---
     # Joins ServerView + config Secret for @hash rollout trigger.
@@ -302,10 +316,10 @@ spec:
                         optional: true
                     - name: config-extra
                       emptyDir: {}
-      target:
-        apiGroup: "apps"
-        kind: "Deployment"
-        type: Updater
+      targets:
+        - apiGroup: "apps"
+          kind: "Deployment"
+          type: Updater
 
     # --- CNPG CLUSTER (managed database only) ---
     - name: server-view-to-cnpg-cluster
@@ -331,18 +345,27 @@ spec:
             spec:
               instances:
                 "@definedOr": ["$.spec.database.instances", 1]
+              # Single-instance PDB blocks node drain (allowedDisruptions: 0).
+              # Disable explicitly for single-instance; override in the stack
+              # spec if you run instances >= 3.
+              enablePDB:
+                "@definedOr": ["$.spec.database.enablePDB", false]
               storage:
                 size:
                   "@definedOr": ["$.spec.database.storage.size", "10Gi"]
+                storageClass:
+                  "@definedOr":
+                    - "$.spec.database.storage.storageClass"
+                    - "ssd-nfs"
               bootstrap:
                 initdb:
                   database:
                     "@definedOr": ["$.spec.database.effectiveName", "synapse"]
                   owner: synapse
-      target:
-        apiGroup: "postgresql.cnpg.io"
-        kind: "Cluster"
-        type: Updater
+      targets:
+        - apiGroup: "postgresql.cnpg.io"
+          kind: "Cluster"
+          type: Updater
 
     # --- SYNAPSE SERVICE ---
     - name: networking-view-to-synapse-svc
@@ -369,10 +392,10 @@ spec:
                 - name: http
                   port: 8008
                   targetPort: 8008
-      target:
-        apiGroup: ""
-        kind: "Service"
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: "Service"
+          type: Updater
 
     # --- SYNAPSE HTTPRoute ---
     - name: networking-view-to-synapse-httproute
@@ -401,10 +424,10 @@ spec:
                 - backendRefs:
                     - name: synapse
                       port: 8008
-      target:
-        apiGroup: gateway.networking.k8s.io
-        kind: "HTTPRoute"
-        type: Updater
+      targets:
+        - apiGroup: gateway.networking.k8s.io
+          kind: "HTTPRoute"
+          type: Updater
 
     # --- ELEMENT WEB CONFIG (config.json via @concat) ---
     # 2-source join: ServerView (serverName) + NetworkingView (host, clients).
@@ -443,10 +466,10 @@ spec:
                   - "\"}},\"element_call\":{\"url\":\"https://call."
                   - "$.MatrixNetworkingView.spec.bridge.wellknownHost"
                   - "\",\"use_exclusively\":true},\"brand\":\"Element\",\"disable_custom_urls\":true,\"disable_guests\":true,\"features\":{\"feature_group_calls\":true,\"feature_video_rooms\":true,\"feature_element_call_video_rooms\":true}}"
-      target:
-        apiGroup: ""
-        kind: ConfigMap
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: ConfigMap
+          type: Updater
 
     # --- ELEMENT WEB DEPLOYMENT ---
     # Single source: NetworkingView. @hash on spec triggers rollout when config changes.
@@ -502,10 +525,10 @@ spec:
                     - name: config
                       configMap:
                         name: element-config
-      target:
-        apiGroup: apps
-        kind: Deployment
-        type: Updater
+      targets:
+        - apiGroup: apps
+          kind: Deployment
+          type: Updater
 
     # --- ELEMENT WEB SERVICE ---
     - name: element-service
@@ -533,10 +556,10 @@ spec:
                 - name: http
                   port: 80
                   targetPort: 80
-      target:
-        apiGroup: ""
-        kind: Service
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: Service
+          type: Updater
 
     # --- ELEMENT WEB HTTPRoute ---
     - name: element-httproute
@@ -566,10 +589,10 @@ spec:
                 - backendRefs:
                     - name: element-web
                       port: 80
-      target:
-        apiGroup: gateway.networking.k8s.io
-        kind: HTTPRoute
-        type: Updater
+      targets:
+        - apiGroup: gateway.networking.k8s.io
+          kind: HTTPRoute
+          type: Updater
 
     # =====================================================================
     # Element Call — self-hosted Element Call widget for MatrixRTC
@@ -604,10 +627,10 @@ spec:
                   - "\",\"server_name\":\""
                   - "$.spec.bridge.wellknownHost"
                   - "\"}}}"
-      target:
-        apiGroup: ""
-        kind: ConfigMap
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: ConfigMap
+          type: Updater
 
     # --- ELEMENT CALL DEPLOYMENT ---
     - name: element-call-deployment
@@ -661,10 +684,10 @@ spec:
                     - name: config
                       configMap:
                         name: element-call-config
-      target:
-        apiGroup: apps
-        kind: Deployment
-        type: Updater
+      targets:
+        - apiGroup: apps
+          kind: Deployment
+          type: Updater
 
     # --- ELEMENT CALL SERVICE ---
     - name: element-call-service
@@ -691,10 +714,10 @@ spec:
                 - name: http
                   port: 80
                   targetPort: 8080
-      target:
-        apiGroup: ""
-        kind: Service
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: Service
+          type: Updater
 
     # --- ELEMENT CALL HTTPRoute ---
     - name: element-call-httproute
@@ -726,10 +749,10 @@ spec:
                 - backendRefs:
                     - name: element-call
                       port: 80
-      target:
-        apiGroup: gateway.networking.k8s.io
-        kind: HTTPRoute
-        type: Updater
+      targets:
+        - apiGroup: gateway.networking.k8s.io
+          kind: HTTPRoute
+          type: Updater
 
     # =====================================================================
     # Cinny — Discord-like Matrix client with MatrixRTC support
@@ -766,10 +789,10 @@ spec:
                   - "{\"defaultHomeserver\":0,\"homeserverList\":[\"https://"
                   - "$.MatrixNetworkingView.spec.host"
                   - "\"],\"allowCustomHomeservers\":false}"
-      target:
-        apiGroup: ""
-        kind: ConfigMap
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: ConfigMap
+          type: Updater
 
     # --- CINNY DEPLOYMENT ---
     - name: cinny-deployment
@@ -820,10 +843,10 @@ spec:
                     - name: config
                       configMap:
                         name: cinny-config
-      target:
-        apiGroup: apps
-        kind: Deployment
-        type: Updater
+      targets:
+        - apiGroup: apps
+          kind: Deployment
+          type: Updater
 
     # --- CINNY SERVICE ---
     - name: cinny-service
@@ -850,10 +873,10 @@ spec:
                 - name: http
                   port: 80
                   targetPort: 80
-      target:
-        apiGroup: ""
-        kind: Service
-        type: Updater
+      targets:
+        - apiGroup: ""
+          kind: Service
+          type: Updater
 
     # --- CINNY HTTPRoute ---
     - name: cinny-httproute
@@ -882,7 +905,7 @@ spec:
                 - backendRefs:
                     - name: cinny
                       port: 80
-      target:
-        apiGroup: gateway.networking.k8s.io
-        kind: HTTPRoute
-        type: Updater
+      targets:
+        - apiGroup: gateway.networking.k8s.io
+          kind: HTTPRoute
+          type: Updater

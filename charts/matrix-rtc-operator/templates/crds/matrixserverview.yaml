@@ -87,6 +87,12 @@ spec:
                           properties:
                             localpartTemplate: { type: string }
                             displayNameTemplate: { type: string }
+                    # Synapse media-store persistent volume
+                    storage:
+                      type: object
+                      properties:
+                        size: { type: string }
+                        storageClass: { type: string }
                 database:
                   type: object
                   properties:
@@ -100,6 +106,7 @@ spec:
                     effectivePasswordKey: { type: string }
                     # Raw values for CNPG cluster creation
                     instances: { type: integer }
+                    enablePDB: { type: boolean }
                     storage:
                       type: object
                       properties:

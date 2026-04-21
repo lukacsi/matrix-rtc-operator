@@ -45,10 +45,10 @@ spec:
                   "@definedOr":
                     - "$.LiveKitStack.spec.gateways.udp.keys.passwordKey"
                     - "$.RTCInfrastructure.spec.stunner.defaultKeyRef.passwordKey"
-      target:
-        apiGroup: "lukacsi.org"
-        kind: "LiveKitServerView"
-        type: Updater
+      targets:
+        - apiGroup: "lukacsi.org"
+          kind: "LiveKitServerView"
+          type: Updater
 
     - name: livekit-to-networking-view
       sources:
@@ -117,7 +117,7 @@ spec:
                         - "$.LiveKitStack.metadata.namespace"
                         - ".svc.cluster.local:"
                         - "$.LiveKitStack.spec.redis.port"
-      target:
-        apiGroup: "lukacsi.org"
-        kind: "LiveKitNetworkingView"
-        type: Updater
+      targets:
+        - apiGroup: "lukacsi.org"
+          kind: "LiveKitNetworkingView"
+          type: Updater

@@ -57,7 +57,7 @@ spec:
                     "@definedOr": ["$.MatrixStack.status.ready", false]
                   message:
                     "@definedOr": ["$.MatrixStack.status.message", "pending"]
-      target:
-        apiGroup: "lukacsi.org"
-        kind: "MatrixRTCStack"
-        type: Patcher
+      targets:
+        - apiGroup: "lukacsi.org"
+          kind: "MatrixRTCStack"
+          type: Patcher

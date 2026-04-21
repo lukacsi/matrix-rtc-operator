@@ -2,8 +2,8 @@ apiVersion: v2
 name: matrix-rtc-operator
 description: Declarative Kubernetes operator for Matrix + LiveKit + STUNner real-time communication stack
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.2.0
+appVersion: "0.2.0"
 home: https://github.com/lukacsi/matrix-rtc-operator
 sources:
   - https://github.com/lukacsi/matrix-rtc-operator

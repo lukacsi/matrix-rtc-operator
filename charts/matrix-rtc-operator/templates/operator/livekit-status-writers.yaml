@@ -28,10 +28,10 @@ spec:
               availableReplicas: "$.status.availableReplicas"
               serviceName: "livekit-sig"
               conditions: "$.status.conditions"
-      target:
-        apiGroup: lukacsi.org
-        kind: LiveKitServerView
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: LiveKitServerView
+          type: Patcher
 
     # Redis status — kept at View level for observability
     - name: redis-status-from-statefulset
@@ -52,10 +52,10 @@ spec:
               redis:
                 ready:
                   "@eq": [{ "@definedOr": ["$.status.readyReplicas", 0] }, "$.spec.replicas"]
-      target:
-        apiGroup: lukacsi.org
-        kind: LiveKitServerView
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: LiveKitServerView
+          type: Patcher
 
     # TURN address — static externalAddress (homelab/hybrid, no Gateway needed)
     - name: static-turn-to-networking-view
@@ -73,10 +73,10 @@ spec:
               namespace: "$.metadata.namespace"
             status:
               turnAddress: "$.spec.turnExternalAddress"
-      target:
-        apiGroup: lukacsi.org
-        kind: LiveKitNetworkingView
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+          type: Patcher
 
     # TURN address — discovered from STUNner Gateway LB IP (cloud)
     - name: gateway-lbip-to-networking-view
@@ -102,10 +102,10 @@ spec:
                 "@definedOr":
                   - "$.LiveKitNetworkingView.spec.turnExternalAddress"
                   - "$.Gateway.status.addresses[0].value"
-      target:
-        apiGroup: lukacsi.org
-        kind: LiveKitNetworkingView
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+          type: Patcher
 
     - name: httproute-ready-to-networking-view
       sources:
@@ -131,10 +131,10 @@ spec:
                             - "@eq": ["$$.status", "True"]
                         - "@definedOr": ["$.status.parents[0].conditions", []]
                   - 0
-      target:
-        apiGroup: lukacsi.org
-        kind: LiveKitNetworkingView
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+          type: Patcher
 
     - name: udproute-ready-to-networking-view
       sources:
@@ -160,10 +160,10 @@ spec:
                             - "@eq": ["$$.status", "True"]
                         - "@definedOr": ["$.status.parents[0].conditions", []]
                   - 0
-      target:
-        apiGroup: lukacsi.org
-        kind: LiveKitNetworkingView
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: LiveKitNetworkingView
+          type: Patcher
 
     - name: ingress-status-from-deploy
       sources:
@@ -184,10 +184,10 @@ spec:
                 replicas: "$.status.replicas"
                 readyReplicas: "$.status.readyReplicas"
                 conditions: "$.status.conditions"
-      target:
-        apiGroup: lukacsi.org
-        kind: LiveKitServerView
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: LiveKitServerView
+          type: Patcher
 
     # --- Aggregate to LiveKitStack ---
     # Sources ALL raw K8s resources directly to avoid Patcher race on Views.
@@ -269,7 +269,7 @@ spec:
                     "@eq": [{ "@definedOr": ["$.StatefulSet.status.readyReplicas", 0] }, { "@definedOr": ["$.StatefulSet.spec.replicas", 1] }]
                 networking:
                   turnAddress: "$.LiveKitNetworkingView.status.turnAddress"
-      target:
-        apiGroup: lukacsi.org
-        kind: LiveKitStack
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: LiveKitStack
+          type: Patcher

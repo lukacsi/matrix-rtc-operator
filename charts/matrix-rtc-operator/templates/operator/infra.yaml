@@ -34,10 +34,10 @@ spec:
                 name: "$.spec.certManager.issuerRef.name"
               dnsNames:
                 - "$.spec.domain"
-      target:
-        apiGroup: cert-manager.io
-        kind: Certificate
-        type: Updater
+      targets:
+        - apiGroup: cert-manager.io
+          kind: Certificate
+          type: Updater
 
     - name: infra-to-clusterissuer
       sources:
@@ -66,10 +66,10 @@ spec:
                         apiTokenSecretRef:
                           name: "$.spec.certManager.cloudflareSecretRef.name"
                           key: "$.spec.certManager.cloudflareSecretRef.key"
-      target:
-        apiGroup: cert-manager.io
-        kind: ClusterIssuer
-        type: Updater
+      targets:
+        - apiGroup: cert-manager.io
+          kind: ClusterIssuer
+          type: Updater
 
     # --- STUNner (managed mode only) ---
     - name: infra-to-stunner-config
@@ -95,10 +95,10 @@ spec:
               authRef:
                 name: "$.spec.stunner.defaultKeyRef.secretName"
                 namespace: "$.spec.stunner.gatewayNamespace"
-      target:
-        apiGroup: stunner.l7mp.io
-        kind: GatewayConfig
-        type: Updater
+      targets:
+        - apiGroup: stunner.l7mp.io
+          kind: GatewayConfig
+          type: Updater
 
     - name: infra-to-stunner-gatewayclass
       sources:
@@ -123,10 +123,10 @@ spec:
                 kind: GatewayConfig
                 name: stunner-gatewayconfig
                 namespace: "$.spec.stunner.gatewayNamespace"
-      target:
-        apiGroup: gateway.networking.k8s.io
-        kind: GatewayClass
-        type: Updater
+      targets:
+        - apiGroup: gateway.networking.k8s.io
+          kind: GatewayClass
+          type: Updater
 
     - name: infra-to-stunner-gateway
       sources:
@@ -167,10 +167,10 @@ spec:
                   port: "$.spec.stunner.port"
                   protocol: TURN-UDP
                   allowedRoutes: { namespaces: { from: All } }
-      target:
-        apiGroup: gateway.networking.k8s.io
-        kind: Gateway
-        type: Updater
+      targets:
+        - apiGroup: gateway.networking.k8s.io
+          kind: Gateway
+          type: Updater
 
     # --- Infrastructure status aggregation ---
 
@@ -190,10 +190,10 @@ spec:
             status:
               stunner:
                 address: "$.spec.stunner.externalAddress"
-      target:
-        apiGroup: lukacsi.org
-        kind: RTCInfrastructure
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+          type: Patcher
 
     # Gateway TURN discovery — discovers LB IP and Gateway health (cloud/LB deployments)
     - name: stunner-gateway-status-to-infra
@@ -233,10 +233,10 @@ spec:
                                   - "@eq": ["$$.status", "True"]
                               - "@definedOr": ["$.Gateway.status.conditions", []]
                         - 0
-      target:
-        apiGroup: lukacsi.org
-        kind: RTCInfrastructure
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+          type: Patcher
 
     - name: certificate-status-to-infra
       sources:
@@ -269,7 +269,7 @@ spec:
                           - "@definedOr": ["$.Certificate.status.conditions", []]
                     - 0
                 notAfter: "$.Certificate.status.notAfter"
-      target:
-        apiGroup: lukacsi.org
-        kind: RTCInfrastructure
-        type: Patcher
+      targets:
+        - apiGroup: lukacsi.org
+          kind: RTCInfrastructure
+          type: Patcher

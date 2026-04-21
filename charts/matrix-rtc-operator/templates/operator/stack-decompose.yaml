@@ -32,10 +32,10 @@ spec:
               livekit: "$.spec.livekit"
               redis: "$.spec.redis"
               gateways: "$.spec.gateways.livekit"
-      target:
-        apiGroup: "lukacsi.org"
-        kind: "LiveKitStack"
-        type: Updater
+      targets:
+        - apiGroup: "lukacsi.org"
+          kind: "LiveKitStack"
+          type: Updater
 
     # Level 0: MatrixRTCStack → MatrixStack
     # Maps flat top-level fields to MatrixStack spec:
@@ -64,7 +64,7 @@ spec:
               database: "$.spec.database"
               clients: "$.spec.clients"
               gateways: "$.spec.gateways.matrix"
-      target:
-        apiGroup: "lukacsi.org"
-        kind: "MatrixStack"
-        type: Updater
+      targets:
+        - apiGroup: "lukacsi.org"
+          kind: "MatrixStack"
+          type: Updater
