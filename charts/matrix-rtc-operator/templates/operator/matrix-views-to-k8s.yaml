@@ -7,11 +7,18 @@ metadata:
     matrixrtc.lukacsi.org/role: matrix-materializer
 spec:
   controllers:
-    # --- SYNAPSE CONFIG (homeserver.yaml generation via @concat) ---
+    # --- SYNAPSE CONFIG (homeserver.yaml via @yaml) ---
     # 3-source join: ServerView + NetworkingView + DB Secret.
     # DB credentials embedded directly from Secret.data (DecodeSecretData).
     # For managed DB: fires after CNPG creates the app secret (natural sequencing).
     # For external DB: fires immediately since user-provided secret already exists.
+    #
+    # Base config is one @yaml dict; the optional OIDC block is emitted as a
+    # second YAML document appended via @concat + @cond, so top-level keys
+    # merge naturally when absent. registration_shared_secret reuses the DB
+    # password (CNPG-generated, 64 chars) because dcontroller can't join two
+    # Secrets of the same kind in one pipeline ($.Secret disambiguation
+    # isn't supported).
     - name: synapse-config-generator
       sources:
         - apiGroup: lukacsi.org
@@ -41,108 +48,69 @@ spec:
             stringData:
               homeserver.yaml:
                 "@concat":
-                  - "server_name: \""
-                  - "$.MatrixServerView.spec.synapse.serverName"
-                  - "\"\n"
-                  - "public_baseurl: \"https://"
-                  - "$.MatrixNetworkingView.spec.host"
-                  - "\"\n"
-                  - "signing_key_path: \"/data/keys/"
-                  - "$.MatrixServerView.spec.synapse.signingKey.signingKeyKey"
-                  - "\"\n\n"
-                  - "listeners:\n"
-                  - "  - port: 8008\n"
-                  - "    type: http\n"
-                  - "    tls: false\n"
-                  - "    x_forwarded: true\n"
-                  - "    resources:\n"
-                  - "      - names: [client, federation]\n"
-                  - "        compress: false\n\n"
-                  - "database:\n"
-                  - "  name: psycopg2\n"
-                  - "  args:\n"
-                  - "    user: \""
-                  - "$.Secret.data['username']"
-                  - "\"\n"
-                  - "    password: \""
-                  - "$.Secret.data['password']"
-                  - "\"\n"
-                  - "    database: \""
-                  - "$.MatrixServerView.spec.database.effectiveName"
-                  - "\"\n"
-                  - "    host: \""
-                  - "$.MatrixServerView.spec.database.effectiveHost"
-                  - "\"\n"
-                  - "    port: "
-                  - "@string": "$.MatrixServerView.spec.database.effectivePort"
-                  - "\n"
-                  - "    cp_min: 5\n"
-                  - "    cp_max: 10\n\n"
-                  - "media_store_path: \"/data/media_store\"\n"
-                  - "uploads_path: \"/data/uploads\"\n"
-                  - "enable_registration: false\n"
-                  # registration_shared_secret: reuses DB password (CNPG-generated, 64 chars).
-                  # dcontroller can't join two Secrets of the same kind in one pipeline —
-                  # a separate registration Secret would require $.Secret disambiguation
-                  # which isn't supported. The DB password is strong and unique per deployment.
-                  - "registration_shared_secret: \""
-                  - "$.Secret.data['password']"
-                  - "\"\n"
-                  - "report_stats: false\n"
-                  # OIDC — conditional block, only included when oidc.enabled=true
+                  - "@yaml":
+                      server_name: "$.MatrixServerView.spec.synapse.serverName"
+                      public_baseurl:
+                        "@concat": ["https://", "$.MatrixNetworkingView.spec.host"]
+                      signing_key_path:
+                        "@concat": ["/data/keys/", "$.MatrixServerView.spec.synapse.signingKey.signingKeyKey"]
+                      listeners:
+                        - port: 8008
+                          type: http
+                          tls: false
+                          x_forwarded: true
+                          resources:
+                            - names: ["client", "federation"]
+                              compress: false
+                      database:
+                        name: psycopg2
+                        args:
+                          user: "$.Secret.data['username']"
+                          password: "$.Secret.data['password']"
+                          database: "$.MatrixServerView.spec.database.effectiveName"
+                          host: "$.MatrixServerView.spec.database.effectiveHost"
+                          port:
+                            "@int": "$.MatrixServerView.spec.database.effectivePort"
+                          cp_min: 5
+                          cp_max: 10
+                      media_store_path: "/data/media_store"
+                      uploads_path: "/data/uploads"
+                      enable_registration: false
+                      registration_shared_secret: "$.Secret.data['password']"
+                      report_stats: false
+                      # Rate limiting — relaxed for personal/small homeserver
+                      rc_joins:
+                        local: { per_second: 50, burst_count: 100 }
+                        remote: { per_second: 50, burst_count: 100 }
+                      rc_message: { per_second: 100, burst_count: 200 }
+                      rc_registration: { per_second: 50, burst_count: 100 }
+                      # MatrixRTC — serve well-known with LiveKit foci for Element Call
+                      serve_client_wellknown: true
+                      extra_well_known_client_content:
+                        "org.matrix.msc4143.rtc_foci":
+                          - type: livekit
+                            livekit_service_url:
+                              "@concat": ["https://", "$.MatrixNetworkingView.spec.bridge.jwtServiceHost"]
                   - "@cond":
                       - "@eq": ["$.MatrixServerView.spec.synapse.oidc.enabled", true]
-                      - "@concat":
-                          - "\noidc_providers:\n"
-                          - "  - idp_id: \""
-                          - "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.idpId", "authentik"]
-                          - "\"\n"
-                          - "    idp_name: \""
-                          - "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.idpName", "Authentik"]
-                          - "\"\n"
-                          - "    discover: true\n"
-                          - "    issuer: \""
-                          - "$.MatrixServerView.spec.synapse.oidc.issuer"
-                          - "\"\n"
-                          - "    client_id: \""
-                          - "$.MatrixServerView.spec.synapse.oidc.clientId"
-                          - "\"\n"
-                          - "    client_secret_path: \"/secrets/oidc/client-secret\"\n"
-                          - "    scopes:\n"
-                          - "      - \"openid\"\n"
-                          - "      - \"profile\"\n"
-                          - "      - \"email\"\n"
-                          - "    user_mapping_provider:\n"
-                          - "      config:\n"
-                          - "        localpart_template: \""
-                          - "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.userMapping.localpartTemplate", "{{`{{ user.preferred_username }}`}}"]
-                          - "\"\n"
-                          - "        display_name_template: \""
-                          - "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.userMapping.displayNameTemplate", "{{`{{ user.name }}`}}"]
-                          - "\"\n"
-                      - "@concat": []
-                  # Rate limiting — relaxed for personal/small homeserver
-                  - "\nrc_joins:\n"
-                  - "  local:\n"
-                  - "    per_second: 50\n"
-                  - "    burst_count: 100\n"
-                  - "  remote:\n"
-                  - "    per_second: 50\n"
-                  - "    burst_count: 100\n"
-                  - "rc_message:\n"
-                  - "  per_second: 100\n"
-                  - "  burst_count: 200\n"
-                  - "rc_registration:\n"
-                  - "  per_second: 50\n"
-                  - "  burst_count: 100\n"
-                  # MatrixRTC — serve well-known with LiveKit foci for Element Call
-                  - "\nserve_client_wellknown: true\n"
-                  - "extra_well_known_client_content:\n"
-                  - "  \"org.matrix.msc4143.rtc_foci\":\n"
-                  - "    - type: \"livekit\"\n"
-                  - "      livekit_service_url: \"https://"
-                  - "$.MatrixNetworkingView.spec.bridge.jwtServiceHost"
-                  - "\"\n"
+                      - "@yaml":
+                          oidc_providers:
+                            - idp_id:
+                                "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.idpId", "authentik"]
+                              idp_name:
+                                "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.idpName", "Authentik"]
+                              discover: true
+                              issuer: "$.MatrixServerView.spec.synapse.oidc.issuer"
+                              client_id: "$.MatrixServerView.spec.synapse.oidc.clientId"
+                              client_secret_path: "/secrets/oidc/client-secret"
+                              scopes: ["openid", "profile", "email"]
+                              user_mapping_provider:
+                                config:
+                                  localpart_template:
+                                    "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.userMapping.localpartTemplate", "{{`{{ user.preferred_username }}`}}"]
+                                  display_name_template:
+                                    "@definedOr": ["$.MatrixServerView.spec.synapse.oidc.userMapping.displayNameTemplate", "{{`{{ user.name }}`}}"]
+                      - ""
       targets:
         - apiGroup: ""
           kind: Secret
@@ -458,14 +426,23 @@ spec:
                 app.kubernetes.io/managed-by: matrix-rtc-operator
             data:
               config.json:
-                "@concat":
-                  - "{\"default_server_config\":{\"m.homeserver\":{\"base_url\":\"https://"
-                  - "$.MatrixNetworkingView.spec.host"
-                  - "\",\"server_name\":\""
-                  - "$.MatrixServerView.spec.synapse.serverName"
-                  - "\"}},\"element_call\":{\"url\":\"https://call."
-                  - "$.MatrixNetworkingView.spec.bridge.wellknownHost"
-                  - "\",\"use_exclusively\":true},\"brand\":\"Element\",\"disable_custom_urls\":true,\"disable_guests\":true,\"features\":{\"feature_group_calls\":true,\"feature_video_rooms\":true,\"feature_element_call_video_rooms\":true}}"
+                "@json":
+                  default_server_config:
+                    "m.homeserver":
+                      base_url:
+                        "@concat": ["https://", "$.MatrixNetworkingView.spec.host"]
+                      server_name: "$.MatrixServerView.spec.synapse.serverName"
+                  element_call:
+                    url:
+                      "@concat": ["https://call.", "$.MatrixNetworkingView.spec.bridge.wellknownHost"]
+                    use_exclusively: true
+                  brand: "Element"
+                  disable_custom_urls: true
+                  disable_guests: true
+                  features:
+                    feature_group_calls: true
+                    feature_video_rooms: true
+                    feature_element_call_video_rooms: true
       targets:
         - apiGroup: ""
           kind: ConfigMap
@@ -619,14 +596,15 @@ spec:
                 app.kubernetes.io/managed-by: matrix-rtc-operator
             data:
               config.json:
-                "@concat":
-                  - "{\"livekit\":{\"livekit_service_url\":\"https://"
-                  - "$.spec.bridge.jwtServiceHost"
-                  - "\"},\"default_server_config\":{\"m.homeserver\":{\"base_url\":\"https://"
-                  - "$.spec.host"
-                  - "\",\"server_name\":\""
-                  - "$.spec.bridge.wellknownHost"
-                  - "\"}}}"
+                "@json":
+                  livekit:
+                    livekit_service_url:
+                      "@concat": ["https://", "$.spec.bridge.jwtServiceHost"]
+                  default_server_config:
+                    "m.homeserver":
+                      base_url:
+                        "@concat": ["https://", "$.spec.host"]
+                      server_name: "$.spec.bridge.wellknownHost"
       targets:
         - apiGroup: ""
           kind: ConfigMap
@@ -785,10 +763,11 @@ spec:
                 app.kubernetes.io/managed-by: matrix-rtc-operator
             data:
               config.json:
-                "@concat":
-                  - "{\"defaultHomeserver\":0,\"homeserverList\":[\"https://"
-                  - "$.MatrixNetworkingView.spec.host"
-                  - "\"],\"allowCustomHomeservers\":false}"
+                "@json":
+                  defaultHomeserver: 0
+                  homeserverList:
+                    - "@concat": ["https://", "$.MatrixNetworkingView.spec.host"]
+                  allowCustomHomeservers: false
       targets:
         - apiGroup: ""
           kind: ConfigMap
