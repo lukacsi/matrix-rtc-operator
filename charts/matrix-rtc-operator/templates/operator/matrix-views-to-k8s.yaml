@@ -83,6 +83,10 @@ spec:
                         local: { per_second: 50, burst_count: 100 }
                         remote: { per_second: 50, burst_count: 100 }
                       rc_message: { per_second: 100, burst_count: 200 }
+                      rc_login:
+                        address: { per_second: 10, burst_count: 20 }
+                        account: { per_second: 5, burst_count: 10 }
+                        failed_attempts: { per_second: 3, burst_count: 5 }
                       rc_registration: { per_second: 50, burst_count: 100 }
                       # MatrixRTC — serve well-known with LiveKit foci for Element Call
                       serve_client_wellknown: true
