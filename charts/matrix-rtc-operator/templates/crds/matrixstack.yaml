@@ -139,9 +139,86 @@ spec:
                       properties:
                         size: { type: string, default: "10Gi" }
                         storageClass: { type: string }
+                        labels:
+                          type: object
+                          additionalProperties: { type: string }
+                          description: "Propagated to CNPG pods/PVCs via Cluster.spec.inheritedMetadata.labels (e.g. data-id for PV rebind runbooks)."
                     image:
                       type: string
                       description: "PostgreSQL image for CNPG (e.g., ghcr.io/cloudnative-pg/postgresql:16)"
+                    backup:
+                      type: object
+                      description: "External backup configuration (managed mode only). Mirrors CNPG Cluster.spec.backup (object-store path; volumeSnapshot not supported) so a working CNPG backup block can be copy-pasted. Omit entirely to disable backups. NOTE: do not set wal/data encryption against KMS-less S3 targets (e.g. in-cluster MinIO) — AES256 PutObjects fail."
+                      properties:
+                        retentionPolicy:
+                          type: string
+                          description: "e.g. 14d, 30d. Mirrors CNPG retentionPolicy."
+                        target:
+                          type: string
+                          enum: ["primary", "prefer-standby"]
+                        barmanObjectStore:
+                          type: object
+                          required: ["destinationPath", "s3Credentials"]
+                          properties:
+                            destinationPath:
+                              type: string
+                              description: "s3://<bucket>/<prefix>"
+                            endpointURL: { type: string }
+                            endpointCA:
+                              type: object
+                              required: ["name", "key"]
+                              properties:
+                                name: { type: string }
+                                key: { type: string }
+                            s3Credentials:
+                              type: object
+                              required: ["accessKeyId", "secretAccessKey"]
+                              properties:
+                                accessKeyId:
+                                  type: object
+                                  required: ["name", "key"]
+                                  properties:
+                                    name: { type: string }
+                                    key: { type: string }
+                                secretAccessKey:
+                                  type: object
+                                  required: ["name", "key"]
+                                  properties:
+                                    name: { type: string }
+                                    key: { type: string }
+                                region:
+                                  type: object
+                                  required: ["name", "key"]
+                                  properties:
+                                    name: { type: string }
+                                    key: { type: string }
+                                sessionToken:
+                                  type: object
+                                  required: ["name", "key"]
+                                  properties:
+                                    name: { type: string }
+                                    key: { type: string }
+                                inheritFromIAMRole: { type: boolean }
+                            serverName: { type: string }
+                            wal:
+                              type: object
+                              properties:
+                                encryption: { type: string, enum: ["AES256", "aws:kms"] }
+                                compression: { type: string, enum: ["gzip", "bzip2", "snappy"] }
+                                maxParallel: { type: integer }
+                            data:
+                              type: object
+                              properties:
+                                encryption: { type: string, enum: ["AES256", "aws:kms"] }
+                                compression: { type: string, enum: ["gzip", "bzip2", "snappy"] }
+                                immediateCheckpoint: { type: boolean }
+                                jobs: { type: integer }
+                            tags:
+                              type: object
+                              additionalProperties: { type: string }
+                            historyTags:
+                              type: object
+                              additionalProperties: { type: string }
                     # External options
                     host: { type: string, description: "Database host (external mode)" }
                     port: { type: integer, default: 5432 }

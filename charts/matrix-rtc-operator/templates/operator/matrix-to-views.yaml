@@ -86,6 +86,11 @@ spec:
                 instances: "$.MatrixStack.spec.database.instances"
                 storage: "$.MatrixStack.spec.database.storage"
                 image: "$.MatrixStack.spec.database.image"
+                # {} when unset: CNPG treats spec.backup: {} the same as absent,
+                # and an always-present key avoids null emission (rejected by
+                # the CNPG webhook) without splitting the Cluster projection.
+                backup:
+                  "@definedOr": ["$.MatrixStack.spec.database.backup", {}]
               clients: "$.MatrixStack.spec.clients"
       targets:
         - apiGroup: "lukacsi.org"

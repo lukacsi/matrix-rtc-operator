@@ -112,7 +112,14 @@ spec:
                       properties:
                         size: { type: string }
                         storageClass: { type: string }
+                        labels:
+                          type: object
+                          additionalProperties: { type: string }
                     image: { type: string }
+                    # Opaque pass-through; typed validation happens on MatrixStack
+                    backup:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
                 clients:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true

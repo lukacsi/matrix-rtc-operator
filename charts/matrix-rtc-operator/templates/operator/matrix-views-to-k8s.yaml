@@ -333,6 +333,16 @@ spec:
                   "@definedOr":
                     - "$.spec.database.storage.storageClass"
                     - "ssd-nfs"
+              # User labels (e.g. data-id for PV rebind runbooks) propagate to
+              # CNPG pods + PVCs. Operator-owned labels stay on the Cluster
+              # itself, so no map merge is needed here.
+              inheritedMetadata:
+                labels:
+                  "@definedOr": ["$.spec.database.storage.labels", {}]
+              # {} when unset — behaviorally identical to absent for CNPG and
+              # never emits null (the webhook rejects explicit nulls).
+              backup:
+                "@definedOr": ["$.spec.database.backup", {}]
               bootstrap:
                 initdb:
                   database:
