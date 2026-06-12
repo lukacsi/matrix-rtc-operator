@@ -55,10 +55,11 @@ spec:
                 spec:
                   containers:
                     - name: lk-jwt-service
-                      # v0.5.0: LIVEKIT_FULL_ACCESS_HOMESERVERS is mandatory
+                      # 0.5.0 (registry tags are UN-prefixed, unlike the git
+                      # tags): LIVEKIT_FULL_ACCESS_HOMESERVERS is mandatory
                       # (no wildcard default) — already set below. Pairs with
                       # Element Call >= 0.19.2 (MSC4195 identity hash).
-                      image: "ghcr.io/element-hq/lk-jwt-service:v0.5.0"
+                      image: "ghcr.io/element-hq/lk-jwt-service:0.5.0"
                       ports:
                         - name: http
                           containerPort: 8080
