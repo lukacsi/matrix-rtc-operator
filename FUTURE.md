@@ -142,17 +142,16 @@
 
 ## Phase 4: LiveKit Bridge — lk-jwt-service + .well-known
 
-### P4-1: lk-jwt-service deployment pipeline
+### P4-1: lk-jwt-service deployment pipeline — DONE (commit 3513a38, matrix-bridge.yaml)
 - jwt-service-deployment: Deployment with env vars from LiveKitStack + MatrixStack
   - LIVEKIT_URL, LIVEKIT_KEY, LIVEKIT_SECRET, LIVEKIT_FULL_ACCESS_HOMESERVERS
 - jwt-service-service: ClusterIP on port 8080
-- jwt-service-httproute: HTTPRoute for matrixrtc.{domain}/livekit/jwt
+- jwt-service-httproute: HTTPRoute on spec.bridge.jwtServiceHost
 
-### P4-2: .well-known via Synapse config
-- matrix-bridge.yaml: cross-CRD join (MatrixStack + LiveKitStack)
-- Patch Synapse ConfigMap to include serve_server_wellknown + rtc_foci
-- @definedOr graceful degradation if LiveKitStack not ready
-- well-known-httproute: HTTPRoute for {domain}/.well-known/matrix/* → synapse
+### P4-2: .well-known via Synapse config — DONE (commit 3513a38, matrix-bridge.yaml)
+- Delivered as dedicated nginx wellknown pod + Synapse serve_client_wellknown
+  with extra_well_known_client_content rtc_foci (dual-serve)
+- well-known-httproute: HTTPRoute for {domain}/.well-known/matrix/*
 
 ### P4-3: End-to-end call verification
 - Deploy full stack on test cluster
@@ -253,3 +252,21 @@
 ### F-5: Matrix bridges
 - Declarative bridge management (Discord, Telegram, Signal, IRC)
 - Bridge CRD → mautrix-* deployments
+
+### F-6: MAS (Matrix Authentication Service) for OIDC-native auth
+- NOT required for Element Call as an Element Web widget (works on legacy OIDC);
+  hard requirement only for Element X mobile clients (no fallback)
+- Prerequisite: Synapse >= 1.136.0 (stable MAS support); current stable 1.154.0
+- syn2mas migration is ONE-WAY once Synapse flips to delegated auth; dry-run first
+- MAS bridges standard OIDC (Authentik) and Matrix OIDC (urn:matrix:* scopes,
+  MSC2965 .well-known org.matrix.msc2965.authentication discovery)
+- Deployment: MAS container + own CNPG database + HTTPRoute; Synapse gains
+  matrix_authentication_service block (msc3861 experimental flag removed in 1.137)
+- Operator changes: new MAS pipeline (conditional on spec.auth.mas.enabled),
+  well-known update, Synapse config update — mutually exclusive with the
+  oidc_providers @cond branch
+- Authentik: NEW OAuth2 provider for MAS upstream; existing accounts survive via
+  upstream_oauth2.providers synapse_idp_id mapping ("oidc-<idp_id>")
+- Bridge prep BEFORE migration: msc4190_enabled + msc3202_device_masquerading
+  (mautrix-discord E2E)
+- Image: ghcr.io/element-hq/matrix-authentication-service:v1.18.0 (2026-06-04)
