@@ -211,6 +211,11 @@ spec:
             spec:
               replicas:
                 "@definedOr": ["$.MatrixServerView.spec.synapse.replicas", 1]
+              # Recreate: synapse-data is RWO iSCSI — RollingUpdate deadlocks
+              # when the replacement pod schedules onto a different node than
+              # the bound PVC (observed 2026-06-12: 5h stuck rollout).
+              strategy:
+                type: Recreate
               selector:
                 matchLabels: { app: "synapse" }
               template:

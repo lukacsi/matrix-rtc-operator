@@ -155,7 +155,11 @@ spec:
                     "@definedOr": ["$.MatrixStack.spec.clients.element.image", "vectorim/element-web:v1.11.86"]
                   replicas:
                     "@definedOr": ["$.MatrixStack.spec.clients.element.replicas", 1]
-                  resources: "$.MatrixStack.spec.clients.element.resources"
+                  # @definedOr-{} so a disabled/absent client block doesn't
+                  # error the whole networking-view row (missing-field reads
+                  # fail the projection, not just the field).
+                  resources:
+                    "@definedOr": ["$.MatrixStack.spec.clients.element.resources", {}]
                   host:
                     "@definedOr":
                       - "$.MatrixStack.spec.clients.element.host"
@@ -169,7 +173,8 @@ spec:
                     "@definedOr": ["$.MatrixStack.spec.clients.cinny.image", "ajbura/cinny:v4.11.1"]
                   replicas:
                     "@definedOr": ["$.MatrixStack.spec.clients.cinny.replicas", 1]
-                  resources: "$.MatrixStack.spec.clients.cinny.resources"
+                  resources:
+                    "@definedOr": ["$.MatrixStack.spec.clients.cinny.resources", {}]
                   host:
                     "@definedOr":
                       - "$.MatrixStack.spec.clients.cinny.host"
