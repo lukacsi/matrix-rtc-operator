@@ -236,6 +236,12 @@ spec:
                 clients:
                   type: object
                   properties:
+                    elementCall:
+                      type: object
+                      properties:
+                        image:
+                          type: string
+                          description: "Element Call image override (default ghcr.io/element-hq/element-call:v0.20.1). Deployed when element.enabled."
                     element:
                       type: object
                       properties:

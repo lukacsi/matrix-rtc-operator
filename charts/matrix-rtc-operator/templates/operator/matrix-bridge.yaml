@@ -55,7 +55,10 @@ spec:
                 spec:
                   containers:
                     - name: lk-jwt-service
-                      image: "ghcr.io/element-hq/lk-jwt-service:0.3.0"
+                      # v0.5.0: LIVEKIT_FULL_ACCESS_HOMESERVERS is mandatory
+                      # (no wildcard default) — already set below. Pairs with
+                      # Element Call >= 0.19.2 (MSC4195 identity hash).
+                      image: "ghcr.io/element-hq/lk-jwt-service:v0.5.0"
                       ports:
                         - name: http
                           containerPort: 8080
@@ -80,8 +83,9 @@ spec:
                               key: "$.LiveKitServerView.spec.livekit.keys.apiSecretKey"
                         - name: LIVEKIT_FULL_ACCESS_HOMESERVERS
                           value: "$.MatrixServerView.spec.synapse.serverName"
-                        - name: LK_JWT_PORT
-                          value: "8080"
+                        # No port env: 8080 is the documented default bind
+                        # (LK_JWT_PORT never existed; LIVEKIT_JWT_PORT is
+                        # deprecated in favor of LIVEKIT_JWT_BIND).
       targets:
         - apiGroup: apps
           kind: Deployment

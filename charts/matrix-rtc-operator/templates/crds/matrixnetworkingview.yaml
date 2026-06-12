@@ -38,6 +38,7 @@ spec:
               properties:
                 stack: { type: string }
                 host: { type: string }
+                serverName: { type: string }
                 httpGatewayRef:
                   type: object
                   properties:
@@ -46,6 +47,10 @@ spec:
                 clients:
                   type: object
                   properties:
+                    elementCall:
+                      type: object
+                      properties:
+                        image: { type: string }
                     element:
                       type: object
                       properties:

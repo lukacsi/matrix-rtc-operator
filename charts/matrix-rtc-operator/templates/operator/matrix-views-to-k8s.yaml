@@ -89,6 +89,23 @@ spec:
                         account: { per_second: 5, burst_count: 10 }
                         failed_attempts: { per_second: 3, burst_count: 5 }
                       rc_registration: { per_second: 50, burst_count: 100 }
+                      # MatrixRTC requirements (Element Call group calls):
+                      # delayed events (MSC4140) need a relaxed mgmt rate limit,
+                      # and the flags below are inert no-ops on Synapse versions
+                      # that predate them.
+                      rc_delayed_event_mgmt: { per_second: 1, burst_count: 20 }
+                      max_event_delay_duration: "24h"
+                      # MSC3266 (room summary) is always-on in Synapse; MSC4140
+                      # (delayed events) is enabled by max_event_delay_duration
+                      # above — neither has an experimental_features flag.
+                      experimental_features:
+                        msc4222_enabled: true   # state in /sync
+                        msc4143_enabled: true   # MatrixRTC transports
+                      matrix_rtc:
+                        transports:
+                          - type: livekit
+                            livekit_service_url:
+                              "@concat": ["https://", "$.MatrixNetworkingView.spec.bridge.jwtServiceHost"]
                       # MatrixRTC — serve well-known with LiveKit foci for Element Call
                       serve_client_wellknown: true
                       extra_well_known_client_content:
@@ -629,7 +646,8 @@ spec:
                     "m.homeserver":
                       base_url:
                         "@concat": ["https://", "$.spec.host"]
-                      server_name: "$.spec.bridge.wellknownHost"
+                      server_name:
+                        "@definedOr": ["$.spec.serverName", "$.spec.bridge.wellknownHost"]
       targets:
         - apiGroup: ""
           kind: ConfigMap
@@ -672,7 +690,9 @@ spec:
                 spec:
                   containers:
                     - name: element-call
-                      image: "ghcr.io/element-hq/element-call:v0.9.0"
+                      # Defaulted in matrix-to-networking-view (v0.20.1);
+                      # override via MatrixStack.spec.clients.elementCall.image
+                      image: "$.spec.clients.elementCall.image"
                       ports:
                         - name: http
                           containerPort: 8080

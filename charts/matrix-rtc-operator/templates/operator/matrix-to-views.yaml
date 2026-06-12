@@ -121,6 +121,10 @@ spec:
                 app.kubernetes.io/managed-by: matrix-rtc-operator
             spec:
               stack: "$.MatrixStack.metadata.name"
+              # Matrix server_name (identity domain) — clients need it for
+              # default_server_config; distinct from bridge.wellknownHost even
+              # though both default to the infra domain.
+              serverName: "$.MatrixStack.spec.synapse.serverName"
               host:
                 "@definedOr":
                   - "$.MatrixStack.spec.gateways.host"
@@ -137,6 +141,13 @@ spec:
                     - "$.MatrixStack.spec.gateways.http.namespace"
                     - "$.RTCInfrastructure.spec.httpGateway.namespace"
               clients:
+                elementCall:
+                  # lk-jwt-service >= 0.4.3 requires Element Call >= 0.19.2
+                  # (MSC4195 identity hash change) — bump them together.
+                  image:
+                    "@definedOr":
+                      - "$.MatrixStack.spec.clients.elementCall.image"
+                      - "ghcr.io/element-hq/element-call:v0.20.1"
                 element:
                   enabled:
                     "@definedOr": ["$.MatrixStack.spec.clients.element.enabled", true]
