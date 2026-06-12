@@ -20,6 +20,7 @@ spec:
     # Secrets of the same kind in one pipeline ($.Secret disambiguation
     # isn't supported).
     - name: synapse-config-generator
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixServerView
@@ -124,6 +125,7 @@ spec:
     # Persistent storage for media_store and uploads. PVC is immutable after
     # creation — Updater creates once, subsequent reconciliations are no-ops.
     - name: synapse-data-pvc
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixServerView
@@ -166,6 +168,7 @@ spec:
     # --- SYNAPSE DEPLOYMENT ---
     # Joins ServerView + config Secret for @hash rollout trigger.
     - name: server-view-to-synapse-deployment
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixServerView
@@ -295,6 +298,7 @@ spec:
 
     # --- CNPG CLUSTER (managed database only) ---
     - name: server-view-to-cnpg-cluster
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixServerView
@@ -341,6 +345,7 @@ spec:
 
     # --- SYNAPSE SERVICE ---
     - name: networking-view-to-synapse-svc
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -371,6 +376,7 @@ spec:
 
     # --- SYNAPSE HTTPRoute ---
     - name: networking-view-to-synapse-httproute
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -405,6 +411,7 @@ spec:
     # 2-source join: ServerView (serverName) + NetworkingView (host, clients).
     # Conditional on clients.element.enabled.
     - name: element-config-generator
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixServerView
@@ -455,6 +462,7 @@ spec:
     # --- ELEMENT WEB DEPLOYMENT ---
     # Single source: NetworkingView. @hash on spec triggers rollout when config changes.
     - name: element-deployment
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -513,6 +521,7 @@ spec:
 
     # --- ELEMENT WEB SERVICE ---
     - name: element-service
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -544,6 +553,7 @@ spec:
 
     # --- ELEMENT WEB HTTPRoute ---
     - name: element-httproute
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -582,6 +592,7 @@ spec:
 
     # --- ELEMENT CALL CONFIG ---
     - name: element-call-config
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -616,6 +627,7 @@ spec:
 
     # --- ELEMENT CALL DEPLOYMENT ---
     - name: element-call-deployment
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -673,6 +685,7 @@ spec:
 
     # --- ELEMENT CALL SERVICE ---
     - name: element-call-service
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -703,6 +716,7 @@ spec:
 
     # --- ELEMENT CALL HTTPRoute ---
     - name: element-call-httproute
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -743,6 +757,7 @@ spec:
 
     # --- CINNY CONFIG ---
     - name: cinny-config-generator
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixServerView
@@ -779,6 +794,7 @@ spec:
 
     # --- CINNY DEPLOYMENT ---
     - name: cinny-deployment
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -833,6 +849,7 @@ spec:
 
     # --- CINNY SERVICE ---
     - name: cinny-service
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -863,6 +880,7 @@ spec:
 
     # --- CINNY HTTPRoute ---
     - name: cinny-httproute
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView

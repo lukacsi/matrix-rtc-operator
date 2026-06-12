@@ -15,6 +15,7 @@ spec:
     # 3-way join: LiveKitServerView (secret refs) + LiveKitNetworkingView (wss URL)
     #           + MatrixServerView (serverName for full-access homeservers)
     - name: jwt-service-deployment
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitServerView
@@ -88,6 +89,7 @@ spec:
 
     # --- JWT SERVICE ---
     - name: jwt-service-service
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -117,6 +119,7 @@ spec:
 
     # --- JWT SERVICE HTTPRoute ---
     - name: jwt-service-httproute
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -153,6 +156,7 @@ spec:
     # --- WELLKNOWN CONFIG ---
     # Single source: MatrixNetworkingView has all needed data (host, bridge hosts)
     - name: wellknown-config
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -188,6 +192,7 @@ spec:
 
     # --- WELLKNOWN DEPLOYMENT ---
     - name: wellknown-deployment
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -253,6 +258,7 @@ spec:
 
     # --- WELLKNOWN SERVICE ---
     - name: wellknown-service
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
@@ -283,6 +289,7 @@ spec:
     # --- WELLKNOWN HTTPRoute ---
     # Serves on the apex domain (e.g., lukacsi.org) at /.well-known/matrix/*
     - name: wellknown-httproute
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView

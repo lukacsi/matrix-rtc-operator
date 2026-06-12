@@ -8,6 +8,7 @@ metadata:
 spec:
   controllers:
     - name: matrix-to-server-view
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixStack
@@ -92,6 +93,7 @@ spec:
           type: Updater
 
     - name: matrix-to-networking-view
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixStack

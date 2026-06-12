@@ -9,6 +9,7 @@ spec:
   controllers:
     # --- LIVEKIT SERVER ---
     - name: server-view-to-deployment
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitServerView
@@ -92,6 +93,7 @@ spec:
 
     # --- LIVEKIT CONFIG (the core config generator with TURN address resolution) ---
     - name: livekit-config-generator
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitNetworkingView
@@ -151,6 +153,7 @@ spec:
 
     # --- LIVEKIT SERVICE ---
     - name: networking-view-to-svc
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitNetworkingView
@@ -178,6 +181,7 @@ spec:
 
     # --- HTTPRoute (gateway-agnostic — works with Traefik, Envoy, Cilium) ---
     - name: networking-view-to-httproute
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitNetworkingView
@@ -210,6 +214,7 @@ spec:
 
     # --- UDPRoute (STUNner) ---
     - name: networking-view-to-udproute
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitNetworkingView
@@ -241,6 +246,7 @@ spec:
 
     # --- REDIS (managed mode only) ---
     - name: server-view-to-redis-statefulset
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitServerView
@@ -293,6 +299,7 @@ spec:
           type: Updater
 
     - name: networking-view-to-redis-service
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitNetworkingView
@@ -325,6 +332,7 @@ spec:
 
     # --- LIVEKIT INGRESS (optional RTMP bridge) ---
     - name: server-view-to-ingress-deployment
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitServerView
@@ -388,6 +396,7 @@ spec:
           type: Updater
 
     - name: networking-view-to-ingress-service
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitNetworkingView
@@ -417,6 +426,7 @@ spec:
           type: Updater
 
     - name: ingress-config-generator
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitNetworkingView

@@ -8,6 +8,7 @@ metadata:
 spec:
   controllers:
     - name: server-status-from-deploy
+      type: Incremental
       sources:
         - apiGroup: apps
           kind: Deployment
@@ -35,6 +36,7 @@ spec:
 
     # Redis status — kept at View level for observability
     - name: redis-status-from-statefulset
+      type: Incremental
       sources:
         - apiGroup: apps
           kind: StatefulSet
@@ -59,6 +61,7 @@ spec:
 
     # TURN address — static externalAddress (homelab/hybrid, no Gateway needed)
     - name: static-turn-to-networking-view
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitNetworkingView
@@ -80,6 +83,7 @@ spec:
 
     # TURN address — discovered from STUNner Gateway LB IP (cloud)
     - name: gateway-lbip-to-networking-view
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitNetworkingView
@@ -108,6 +112,7 @@ spec:
           type: Patcher
 
     - name: httproute-ready-to-networking-view
+      type: Incremental
       sources:
         - apiGroup: gateway.networking.k8s.io
           kind: HTTPRoute
@@ -137,6 +142,7 @@ spec:
           type: Patcher
 
     - name: udproute-ready-to-networking-view
+      type: Incremental
       sources:
         - apiGroup: stunner.l7mp.io
           kind: UDPRoute
@@ -166,6 +172,7 @@ spec:
           type: Patcher
 
     - name: ingress-status-from-deploy
+      type: Incremental
       sources:
         - apiGroup: apps
           kind: Deployment
@@ -194,6 +201,7 @@ spec:
     # Until dcontroller#9 is fixed (Patcher doesn't deep merge), this is the only
     # reliable way to aggregate status from multiple sources into one object.
     - name: stack-status-aggregate
+      type: Incremental
       sources:
         - apiGroup: apps
           kind: Deployment

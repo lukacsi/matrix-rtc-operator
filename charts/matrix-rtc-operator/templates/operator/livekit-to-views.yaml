@@ -8,6 +8,7 @@ metadata:
 spec:
   controllers:
     - name: livekit-to-server-view
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitStack
@@ -51,6 +52,7 @@ spec:
           type: Updater
 
     - name: livekit-to-networking-view
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitStack

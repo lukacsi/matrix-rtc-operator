@@ -13,6 +13,7 @@ spec:
     #   spec.redis → LiveKitStack.spec.redis
     #   spec.gateways.livekit → LiveKitStack.spec.gateways
     - name: stack-to-livekit
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixRTCStack
@@ -44,6 +45,7 @@ spec:
     #   spec.clients → MatrixStack.spec.clients
     #   spec.gateways.matrix → MatrixStack.spec.gateways
     - name: stack-to-matrix
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: MatrixRTCStack

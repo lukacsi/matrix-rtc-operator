@@ -10,6 +10,7 @@ spec:
     # Level 0: LiveKitStack.status + MatrixStack.status → MatrixRTCStack.status
     # Single writer to MatrixRTCStack status — no Patcher race concern
     - name: stack-status-aggregator
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: LiveKitStack

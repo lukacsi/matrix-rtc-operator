@@ -11,6 +11,7 @@ spec:
     # When matrixrtc.lukacsi.org/certmanager label is "disabled", these controllers are dormant.
     # BYO: user manages their own ClusterIssuer + Certificate, operator just creates HTTPRoutes.
     - name: infra-to-certificate
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: RTCInfrastructure
@@ -40,6 +41,7 @@ spec:
           type: Updater
 
     - name: infra-to-clusterissuer
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: RTCInfrastructure
@@ -73,6 +75,7 @@ spec:
 
     # --- STUNner (managed mode only) ---
     - name: infra-to-stunner-config
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: RTCInfrastructure
@@ -101,6 +104,7 @@ spec:
           type: Updater
 
     - name: infra-to-stunner-gatewayclass
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: RTCInfrastructure
@@ -129,6 +133,7 @@ spec:
           type: Updater
 
     - name: infra-to-stunner-gateway
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: RTCInfrastructure
@@ -176,6 +181,7 @@ spec:
 
     # Static TURN address — sets address and ready from externalAddress (no Gateway needed)
     - name: static-stunner-address-to-infra
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: RTCInfrastructure
@@ -197,6 +203,7 @@ spec:
 
     # Gateway TURN discovery — discovers LB IP and Gateway health (cloud/LB deployments)
     - name: stunner-gateway-status-to-infra
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: RTCInfrastructure
@@ -239,6 +246,7 @@ spec:
           type: Patcher
 
     - name: certificate-status-to-infra
+      type: Incremental
       sources:
         - apiGroup: lukacsi.org
           kind: RTCInfrastructure
