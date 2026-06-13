@@ -239,9 +239,12 @@ spec:
                     elementCall:
                       type: object
                       properties:
+                        enabled:
+                          type: boolean
+                          description: "Deploy the Element Call voice surface (call.<domain>). Default true; independent of element.enabled."
                         image:
                           type: string
-                          description: "Element Call image override (default ghcr.io/element-hq/element-call:v0.20.1). Deployed when element.enabled."
+                          description: "Element Call image override (default ghcr.io/element-hq/element-call:v0.20.1)."
                     element:
                       type: object
                       properties:

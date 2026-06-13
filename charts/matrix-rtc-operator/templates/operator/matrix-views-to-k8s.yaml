@@ -629,8 +629,10 @@ spec:
         - apiGroup: lukacsi.org
           kind: MatrixNetworkingView
       pipeline:
+        # Element Call is required RTC infra — gate on its OWN flag, never on
+        # element.enabled (the chat-client flag). Decoupled 2026-06-13.
         - "@select":
-            "@eq": ["$.spec.clients.element.enabled", true]
+            "@eq": ["$.spec.clients.elementCall.enabled", true]
         - "@project":
             apiVersion: v1
             kind: ConfigMap
@@ -666,7 +668,7 @@ spec:
           kind: MatrixNetworkingView
       pipeline:
         - "@select":
-            "@eq": ["$.spec.clients.element.enabled", true]
+            "@eq": ["$.spec.clients.elementCall.enabled", true]
         - "@project":
             apiVersion: apps/v1
             kind: Deployment
@@ -726,7 +728,7 @@ spec:
           kind: MatrixNetworkingView
       pipeline:
         - "@select":
-            "@eq": ["$.spec.clients.element.enabled", true]
+            "@eq": ["$.spec.clients.elementCall.enabled", true]
         - "@project":
             apiVersion: v1
             kind: Service
@@ -757,7 +759,7 @@ spec:
           kind: MatrixNetworkingView
       pipeline:
         - "@select":
-            "@eq": ["$.spec.clients.element.enabled", true]
+            "@eq": ["$.spec.clients.elementCall.enabled", true]
         - "@project":
             apiVersion: gateway.networking.k8s.io/v1
             kind: HTTPRoute

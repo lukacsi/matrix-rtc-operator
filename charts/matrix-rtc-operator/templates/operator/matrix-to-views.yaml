@@ -142,6 +142,11 @@ spec:
                     - "$.RTCInfrastructure.spec.httpGateway.namespace"
               clients:
                 elementCall:
+                  # Required RTC infra — defaults ON, gated independently of the
+                  # element (chat) client. Set elementCall.enabled:false only to
+                  # intentionally drop the voice surface.
+                  enabled:
+                    "@definedOr": ["$.MatrixStack.spec.clients.elementCall.enabled", true]
                   # lk-jwt-service >= 0.4.3 requires Element Call >= 0.19.2
                   # (MSC4195 identity hash change) — bump them together.
                   image:
