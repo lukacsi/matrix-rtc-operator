@@ -81,9 +81,11 @@ spec:
           kind: RTCInfrastructure
       pipeline:
         - "@select":
-            "@eq":
-              - "$.metadata.labels['matrixrtc.lukacsi.org/stunner']"
-              - "enabled"
+            "@and":
+              - "@eq":
+                  - "$.metadata.labels['matrixrtc.lukacsi.org/stunner']"
+                  - "enabled"
+              - "@definedOr": ["$.spec.stunner.managed", true]
         - "@project":
             apiVersion: stunner.l7mp.io/v1
             kind: GatewayConfig
@@ -100,7 +102,7 @@ spec:
                 namespace: "$.spec.stunner.gatewayNamespace"
       targets:
         - apiGroup: stunner.l7mp.io
-          kind: GatewayConfig
+          kind: "GatewayConfig"
           type: Updater
 
     - name: infra-to-stunner-gatewayclass
@@ -110,9 +112,11 @@ spec:
           kind: RTCInfrastructure
       pipeline:
         - "@select":
-            "@eq":
-              - "$.metadata.labels['matrixrtc.lukacsi.org/stunner']"
-              - "enabled"
+            "@and":
+              - "@eq":
+                  - "$.metadata.labels['matrixrtc.lukacsi.org/stunner']"
+                  - "enabled"
+              - "@definedOr": ["$.spec.stunner.managed", true]
         - "@project":
             apiVersion: gateway.networking.k8s.io/v1
             kind: GatewayClass
@@ -124,7 +128,7 @@ spec:
               controllerName: stunner.l7mp.io/gateway-operator
               parametersRef:
                 group: stunner.l7mp.io
-                kind: GatewayConfig
+                kind: "GatewayConfig"
                 name: stunner-gatewayconfig
                 namespace: "$.spec.stunner.gatewayNamespace"
       targets:
@@ -139,9 +143,11 @@ spec:
           kind: RTCInfrastructure
       pipeline:
         - "@select":
-            "@eq":
-              - "$.metadata.labels['matrixrtc.lukacsi.org/stunner']"
-              - "enabled"
+            "@and":
+              - "@eq":
+                  - "$.metadata.labels['matrixrtc.lukacsi.org/stunner']"
+                  - "enabled"
+              - "@definedOr": ["$.spec.stunner.managed", true]
         - "@project":
             apiVersion: gateway.networking.k8s.io/v1
             kind: Gateway
@@ -209,9 +215,6 @@ spec:
           kind: RTCInfrastructure
         - apiGroup: gateway.networking.k8s.io
           kind: Gateway
-          labelSelector:
-            matchLabels:
-              "app.kubernetes.io/managed-by": "matrix-rtc-operator"
       pipeline:
         - "@join":
             "@and":
