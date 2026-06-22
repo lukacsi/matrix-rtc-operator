@@ -361,6 +361,11 @@ spec:
               inheritedMetadata:
                 labels:
                   "@definedOr": ["$.spec.database.storage.labels", {}]
+              # Cap WAL retained for replication slots — prevents disk-fill if
+              # a slot freezes (cf homelab incident 2026-05-04 WAL bloat).
+              postgresql:
+                parameters:
+                  max_slot_wal_keep_size: 2GB
               # {} when unset — behaviorally identical to absent for CNPG and
               # never emits null (the webhook rejects explicit nulls).
               backup:
